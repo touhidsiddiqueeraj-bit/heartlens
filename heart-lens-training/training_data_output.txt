@@ -1,0 +1,59 @@
+  100: 748 segments
+  101: 634 segments
+  102: 717 segments
+  103: 691 segments
+  104: 712 segments
+  105: 819 segments
+  106: 637 segments
+  107: 694 segments
+  108: 552 segments
+  109: 842 segments
+  111: 686 segments
+  112: 840 segments
+  113: 571 segments
+  114: 547 segments
+  115: 624 segments
+  116: 784 segments
+  117: 496 segments
+  118: 756 segments
+  119: 648 segments
+  121: 599 segments
+  122: 823 segments
+  123: 497 segments
+  124: 515 segments
+  200: 856 segments
+  201: 749 segments
+  202: 525 segments
+  203: 981 segments
+  205: 909 segments
+  207: 774 segments
+  208: 997 segments
+  209: 1007 segments
+  210: 866 segments
+  212: 918 segments
+  213: 1081 segments
+  214: 748 segments
+  215: 1112 segments
+  217: 715 segments
+  219: 745 segments
+  220: 688 segments
+  221: 814 segments
+  222: 726 segments
+  223: 819 segments
+  228: 685 segments
+  230: 717 segments
+  231: 495 segments
+  232: 593 segments
+  233: 1006 segments
+  234: 906 segments
+
+Total segments: 35864
+  Class 0: 29851 segments
+  Class 1: 705 segments
+  Class 2: 2227 segments
+  Class 3: 455 segments
+  Class 4: 2556 segments
+  Class 5: 70 segments
+
+Train: (5056, 3600, 1), Val: (1085, 3600, 1), Test: (1089, 3600, 1)
+y distribution: train=[1399  493 1399  318 1399   48], val=[300 106 300  68 300  11], test=[301 106 301  69 301  11]

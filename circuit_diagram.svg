@@ -1,0 +1,243 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 750" font-family="Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FAFAFA"/>
+      <stop offset="100%" stop-color="#F0F0F0"/>
+    </linearGradient>
+    <linearGradient id="redGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E74C3C"/>
+      <stop offset="100%" stop-color="#C0392B"/>
+    </linearGradient>
+    <linearGradient id="tealGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1ABC9C"/>
+      <stop offset="100%" stop-color="#1A6B6B"/>
+    </linearGradient>
+    <linearGradient id="darkGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#34495E"/>
+      <stop offset="100%" stop-color="#2C3E50"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F39C12"/>
+      <stop offset="100%" stop-color="#B8860B"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#555"/>
+    </marker>
+    <marker id="arrow-teal" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#1A6B6B"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#C0392B"/>
+    </marker>
+  </defs>
+
+  <rect width="1000" height="750" fill="url(#bg)" rx="8"/>
+
+  <!-- Title -->
+  <text x="500" y="40" text-anchor="middle" font-size="22" font-weight="bold" fill="#1A1410">HeartLens AI — System Block Diagram</text>
+  <text x="500" y="62" text-anchor="middle" font-size="13" fill="#888">Offline ECG Screening Device with On-Device AI Inference</text>
+
+  <!-- ============================================ -->
+  <!-- POWER SECTION -->
+  <!-- ============================================ -->
+  <rect x="20" y="80" width="960" height="130" rx="6" fill="#FFF" stroke="#DDD" stroke-width="1"/>
+  <text x="35" y="100" font-size="11" font-weight="bold" fill="#888">POWER</text>
+
+  <!-- USB-C -->
+  <rect x="50" y="115" width="90" height="50" rx="6" fill="#ECF0F1" stroke="#BDC3C7" stroke-width="1.5"/>
+  <text x="95" y="137" text-anchor="middle" font-size="11" font-weight="bold" fill="#555">USB-C</text>
+  <text x="95" y="153" text-anchor="middle" font-size="10" fill="#777">5V Input</text>
+
+  <!-- TP4056 -->
+  <rect x="200" y="115" width="100" height="50" rx="6" fill="#FEF9ED" stroke="#B8860B" stroke-width="1.5"/>
+  <text x="250" y="137" text-anchor="middle" font-size="11" font-weight="bold" fill="#B8860B">TP4056</text>
+  <text x="250" y="153" text-anchor="middle" font-size="10" fill="#B8860B">LiPo Charger</text>
+
+  <!-- LiPo -->
+  <rect x="370" y="115" width="100" height="50" rx="6" fill="#D0E8E8" stroke="#1A6B6B" stroke-width="1.5"/>
+  <text x="420" y="137" text-anchor="middle" font-size="11" font-weight="bold" fill="#1A6B6B">LiPo 3.7V</text>
+  <text x="420" y="153" text-anchor="middle" font-size="10" fill="#1A6B6B">500-1000 mAh</text>
+
+  <!-- AMS1117 -->
+  <rect x="540" y="115" width="100" height="50" rx="6" fill="#FEF9ED" stroke="#B8860B" stroke-width="1.5"/>
+  <text x="590" y="137" text-anchor="middle" font-size="11" font-weight="bold" fill="#B8860B">AMS1117-3.3</text>
+  <text x="590" y="153" text-anchor="middle" font-size="10" fill="#B8860B">LDO Regulator</text>
+
+  <!-- 3.3V Rail -->
+  <rect x="710" y="115" width="120" height="50" rx="6" fill="url(#tealGrad)"/>
+  <text x="770" y="137" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFF">3.3V Rail</text>
+  <text x="770" y="155" text-anchor="middle" font-size="10" fill="#DDD">~75 mA total</text>
+
+  <!-- Power arrows -->
+  <line x1="140" y1="140" x2="195" y2="140" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="300" y1="140" x2="365" y2="140" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="470" y1="140" x2="535" y2="140" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="640" y1="140" x2="705" y2="140" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Battery voltage divider path -->
+  <path d="M420,165 L420,210 L770,210 L770,235" stroke="#C0392B" stroke-width="1.2" stroke-dasharray="5,3" fill="none" marker-end="url(#arrow-red)"/>
+  <text x="590" y="204" text-anchor="middle" font-size="9" fill="#C0392B" font-style="italic">Battery voltage monitor (10k/10k → GPIO35)</text>
+
+  <!-- ============================================ -->
+  <!-- ANALOG + DIGITAL SECTIONS -->
+  <!-- ============================================ -->
+
+  <!-- LEFT: Analog Frontend -->
+  <rect x="20" y="230" width="300" height="240" rx="6" fill="#FFF" stroke="#DDD" stroke-width="1"/>
+  <text x="35" y="250" font-size="11" font-weight="bold" fill="#888">ANALOG FRONTEND</text>
+
+  <!-- Electrodes -->
+  <rect x="40" y="265" width="120" height="70" rx="6" fill="#FAE5E3" stroke="#C0392B" stroke-width="1.5"/>
+  <text x="100" y="290" text-anchor="middle" font-size="11" font-weight="bold" fill="#C0392B">Electrodes</text>
+  <text x="100" y="306" text-anchor="middle" font-size="10" fill="#C0392B">LA / RA / RL</text>
+  <text x="100" y="320" text-anchor="middle" font-size="9" fill="#999">3-lead snap cable</text>
+
+  <!-- AD8232 -->
+  <rect x="40" y="360" width="260" height="85" rx="6" fill="#FAE5E3" stroke="#C0392B" stroke-width="1.5"/>
+  <text x="170" y="382" text-anchor="middle" font-size="12" font-weight="bold" fill="#C0392B">AD8232 — ECG Analog Frontend</text>
+  <text x="170" y="399" text-anchor="middle" font-size="10" fill="#C0392B">Instrumentation Amp + Band-Pass Filter</text>
+  <text x="170" y="416" text-anchor="middle" font-size="10" fill="#C0392B">0.5–40 Hz passband, ~100x gain</text>
+  <text x="170" y="433" text-anchor="middle" font-size="10" fill="#C0392B">OUTPUT, LOFF±, RLD</text>
+
+  <line x1="100" y1="335" x2="100" y2="355" stroke="#C0392B" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="105" y="348" font-size="9" fill="#C0392B">differential signal</text>
+
+  <!-- Lead-off detection -->
+  <line x1="300" y1="390" x2="340" y2="390" stroke="#C0392B" stroke-width="1.2" stroke-dasharray="4,3" fill="none"/>
+  <text x="315" y="383" font-size="9" fill="#C0392B">LOFF±</text>
+
+  <!-- ============================================ -->
+  <!-- CENTER: ESP32 Processing -->
+  <!-- ============================================ -->
+  <rect x="340" y="230" width="320" height="290" rx="6" fill="#FFF" stroke="#DDD" stroke-width="1"/>
+  <text x="355" y="250" font-size="11" font-weight="bold" fill="#888">ESP32-WROOM-32 — PROCESSING</text>
+
+  <!-- ADC -->
+  <rect x="360" y="270" width="130" height="55" rx="6" fill="#D0E8E8" stroke="#1A6B6B" stroke-width="1.5"/>
+  <text x="425" y="290" text-anchor="middle" font-size="11" font-weight="bold" fill="#1A6B6B">ADC Sampling</text>
+  <text x="425" y="306" text-anchor="middle" font-size="10" fill="#1A6B6B">GPIO34 (ADC1_CH6)</text>
+  <text x="425" y="318" text-anchor="middle" font-size="9" fill="#999">12-bit, 360 Hz</text>
+
+  <!-- LSTM -->
+  <rect x="360" y="350" width="130" height="55" rx="6" fill="#1A6B6B"/>
+  <text x="425" y="370" text-anchor="middle" font-size="11" font-weight="bold" fill="#FFF">LSTM Denoiser</text>
+  <text x="425" y="386" text-anchor="middle" font-size="10" fill="#DDD">2 layers × 64 units</text>
+  <text x="425" y="398" text-anchor="middle" font-size="9" fill="#AAA">~30 ms, 148 KB</text>
+
+  <!-- CNN -->
+  <rect x="510" y="350" width="130" height="55" rx="6" fill="#2C3E50"/>
+  <text x="575" y="370" text-anchor="middle" font-size="11" font-weight="bold" fill="#FFF">1D-CNN Classifier</text>
+  <text x="575" y="386" text-anchor="middle" font-size="10" fill="#DDD">3 conv blocks</text>
+  <text x="575" y="398" text-anchor="middle" font-size="9" fill="#AAA">~20 ms, 112 KB</text>
+
+  <!-- Interpreter -->
+  <rect x="360" y="430" width="280" height="50" rx="6" fill="url(#goldGrad)"/>
+  <text x="500" y="450" text-anchor="middle" font-size="11" font-weight="bold" fill="#FFF">Rule-Based Interpreter</text>
+  <text x="500" y="466" text-anchor="middle" font-size="10" fill="#FEF9ED">Confidence thresholds → plain-language output</text>
+
+  <!-- Flow arrows: ADC → LSTM → CNN → Interpreter -->
+  <line x1="425" y1="325" x2="425" y2="345" stroke="#1A6B6B" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
+  <line x1="490" y1="377" x2="505" y2="377" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="575" y1="405" x2="575" y2="425" stroke="#B8860B" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="360" y1="455" x2="350" y2="455" stroke="#B8860B" stroke-width="1.2" stroke-dasharray="4,3" fill="none"/>
+
+  <text x="458" y="340" text-anchor="middle" font-size="9" fill="#1A6B6B">rolling buffer</text>
+  <text x="540" y="345" text-anchor="middle" font-size="9" fill="#555">6-class</text>
+
+  <!-- Right-leg drive from AD8232 -->
+  <line x1="300" y1="420" x2="340" y2="420" stroke="#C0392B" stroke-width="1.2" stroke-dasharray="4,3" fill="none"/>
+  <text x="315" y="413" font-size="9" fill="#C0392B">RLD</text>
+
+  <!-- AD8232 → ADC arrow -->
+  <line x1="300" y1="370" x2="355" y2="295" stroke="#C0392B" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="310" y="315" font-size="9" fill="#C0392B" font-weight="bold">OUTPUT</text>
+
+  <!-- 3.3V rail to components -->
+  <path d="M770,165 L770,260 L490,260 L490,265" stroke="#1A6B6B" stroke-width="1.2" stroke-dasharray="5,3" fill="none" marker-end="url(#arrow-teal)"/>
+  <path d="M770,165 L770,260 L425,260 L425,265" stroke="#1A6B6B" stroke-width="1.2" stroke-dasharray="5,3" fill="none"/>
+  <text x="640" y="255" font-size="9" fill="#1A6B6B" font-style="italic">3.3V</text>
+
+  <!-- ============================================ -->
+  <!-- RIGHT: Output -->
+  <!-- ============================================ -->
+  <rect x="680" y="230" width="300" height="240" rx="6" fill="#FFF" stroke="#DDD" stroke-width="1"/>
+  <text x="695" y="250" font-size="11" font-weight="bold" fill="#888">OUTPUT &amp; INTERFACE</text>
+
+  <!-- SSD1306 -->
+  <rect x="700" y="270" width="140" height="70" rx="6" fill="#D0E8E8" stroke="#1A6B6B" stroke-width="1.5"/>
+  <text x="770" y="292" text-anchor="middle" font-size="11" font-weight="bold" fill="#1A6B6B">SSD1306 OLED</text>
+  <text x="770" y="308" text-anchor="middle" font-size="10" fill="#1A6B6B">128×64 px, 0.96"</text>
+  <text x="770" y="324" text-anchor="middle" font-size="9" fill="#999">I2C: GPIO21(SDA) / GPIO22(SCL)</text>
+
+  <!-- UART -->
+  <rect x="700" y="360" width="140" height="55" rx="6" fill="#ECF0F1" stroke="#BDC3C7" stroke-width="1.5"/>
+  <text x="770" y="380" text-anchor="middle" font-size="11" font-weight="bold" fill="#555">UART Debug</text>
+  <text x="770" y="398" text-anchor="middle" font-size="10" fill="#777">GPIO1(TX) / GPIO3(RX)</text>
+
+  <!-- Display output examples -->
+  <rect x="860" y="270" width="100" height="145" rx="6" fill="#1A1410" stroke="#555" stroke-width="1"/>
+  <text x="910" y="288" text-anchor="middle" font-size="8" fill="#7A6E68" font-weight="bold">OLED OUTPUT</text>
+  <text x="910" y="308" text-anchor="middle" font-size="7" fill="#4AECB0">♥ Normal</text>
+  <text x="910" y="324" text-anchor="middle" font-size="7" fill="#E8B84A">⚡ Unusual</text>
+  <text x="910" y="340" text-anchor="middle" font-size="7" fill="#E74C3C">⚠ Seek Care</text>
+  <text x="910" y="356" text-anchor="middle" font-size="7" fill="#888">Signal Unclear</text>
+  <text x="910" y="380" text-anchor="middle" font-size="6" fill="#555">────</text>
+  <text x="910" y="395" text-anchor="middle" font-size="6" fill="#555">BAT: ████░ 80%</text>
+
+  <!-- Interpreter → SSD1306 -->
+  <line x1="640" y1="455" x2="695" y2="300" stroke="#1A6B6B" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
+  <text x="660" y="370" font-size="9" fill="#1A6B6B">I2C</text>
+
+  <!-- Interpreter → UART -->
+  <line x1="640" y1="455" x2="695" y2="390" stroke="#555" stroke-width="1.2" stroke-dasharray="5,3" fill="none" marker-end="url(#arrow)"/>
+  <text x="660" y="410" font-size="9" fill="#555">UART</text>
+
+  <!-- 3.3V → SSD1306 -->
+  <path d="M770,165 L770,260 L770,265" stroke="#1A6B6B" stroke-width="1.2" stroke-dasharray="5,3" fill="none" marker-end="url(#arrow-teal)"/>
+
+  <!-- ============================================ -->
+  <!-- BOTTOM: Specs bar -->
+  <!-- ============================================ -->
+  <rect x="20" y="540" width="960" height="100" rx="6" fill="#FFF" stroke="#DDD" stroke-width="1"/>
+
+  <!-- Spec boxes -->
+  <rect x="35" y="555" width="180" height="70" rx="4" fill="#FAE5E3" stroke="#C0392B" stroke-width="1"/>
+  <text x="125" y="578" text-anchor="middle" font-size="11" font-weight="bold" fill="#C0392B">AI Models</text>
+  <text x="125" y="595" text-anchor="middle" font-size="10" fill="#555">LSTM + 1D-CNN</text>
+  <text x="125" y="610" text-anchor="middle" font-size="9" fill="#888">TFLite Micro, int8</text>
+
+  <rect x="230" y="555" width="180" height="70" rx="4" fill="#D0E8E8" stroke="#1A6B6B" stroke-width="1"/>
+  <text x="320" y="578" text-anchor="middle" font-size="11" font-weight="bold" fill="#1A6B6B">Detection Classes</text>
+  <text x="320" y="595" text-anchor="middle" font-size="10" fill="#555">AFib, PVC, Tachy</text>
+  <text x="320" y="610" text-anchor="middle" font-size="9" fill="#888">Brady, ST Abn, Normal</text>
+
+  <rect x="425" y="555" width="180" height="70" rx="4" fill="#FEF9ED" stroke="#B8860B" stroke-width="1"/>
+  <text x="515" y="578" text-anchor="middle" font-size="11" font-weight="bold" fill="#B8860B">Total Latency</text>
+  <text x="515" y="595" text-anchor="middle" font-size="10" fill="#555">&lt; 100 ms</text>
+  <text x="515" y="610" text-anchor="middle" font-size="9" fill="#888">ADC → Display</text>
+
+  <rect x="620" y="555" width="180" height="70" rx="4" fill="#2C3E50"/>
+  <text x="710" y="578" text-anchor="middle" font-size="11" font-weight="bold" fill="#FFF">BOM Cost</text>
+  <text x="710" y="595" text-anchor="middle" font-size="10" fill="#DDD">~$12 / unit</text>
+  <text x="710" y="610" text-anchor="middle" font-size="9" fill="#AAA">3 prototypes: ~$62</text>
+
+  <rect x="815" y="555" width="150" height="70" rx="4" fill="#1A1410"/>
+  <text x="890" y="578" text-anchor="middle" font-size="11" font-weight="bold" fill="#FFF">Battery Life</text>
+  <text x="890" y="595" text-anchor="middle" font-size="10" fill="#DDD">~6.5 hours</text>
+  <text x="890" y="610" text-anchor="middle" font-size="9" fill="#AAA">500 mAh @ 75 mA</text>
+
+  <!-- ============================================ -->
+  <!-- Footer -->
+  <!-- ============================================ -->
+  <text x="500" y="670" text-anchor="middle" font-size="10" fill="#AAA">HeartLens AI — Confidential</text>
+  <text x="500" y="685" text-anchor="middle" font-size="9" fill="#CCC">ESP32-WROOM-32 | AD8232 | SSD1306 | TFLite Micro</text>
+
+  <!-- Legend -->
+  <rect x="20" y="700" width="960" height="35" rx="4" fill="#F5F5F5" stroke="#EEE" stroke-width="1"/>
+  <line x1="40" y1="718" x2="70" y2="718" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="75" y="722" font-size="9" fill="#555">Signal path</text>
+  <line x1="150" y1="718" x2="180" y2="718" stroke="#1A6B6B" stroke-width="1.2" stroke-dasharray="5,3" fill="none"/>
+  <text x="185" y="722" font-size="9" fill="#1A6B6B">Power delivery</text>
+  <line x1="295" y1="718" x2="325" y2="718" stroke="#C0392B" stroke-width="1.2" stroke-dasharray="5,3" fill="none"/>
+  <text x="330" y="722" font-size="9" fill="#C0392B">Monitoring</text>
+</svg>
