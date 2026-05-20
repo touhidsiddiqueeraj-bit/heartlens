@@ -5,3 +5,7 @@ __pycache__/
 *.pyc
 .env
 heart-lens-training/__pycache__/
+heart-lens-training/mitdb/
+HeartLens_Firmware/lib/tensorflow_lite/
+*.docx
+*.pdf
