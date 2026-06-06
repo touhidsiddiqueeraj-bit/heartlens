@@ -9,3 +9,7 @@ heart-lens-training/mitdb/
 HeartLens_Firmware/lib/tensorflow_lite/
 *.docx
 *.pdf
+heart-lens-training/models/*.tflite
+heart-lens-training/models/*.keras
+*.swp
+*.swo

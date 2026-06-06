@@ -1,6 +1,22 @@
-# HeartLens AI — ESP32 Firmware
+# HeartLens AI — ESP32 Firmware v1.1
 
 Offline ECG screening device with on-device AI inference. Runs entirely on an ESP32 DevKit v4 — no smartphone, no cloud, no internet required.
+
+## What's new in v1.1
+
+| Feature | v1.0 | v1.1 |
+|---------|------|------|
+| ADC method | `analogRead()` (blocking, jittery) | I2S-driven with `esp_adc_cal` |
+| Thread safety | `volatile` only (data race) | FreeRTOS mutex |
+| ADC task lifecycle | Never stops (writes during inference) | Proper `vTaskDelete` |
+| Denoiser | LSTM autoencoder (~148 KB, slow) | Conv1D autoencoder (~50 KB, 3-5x faster) |
+| Window utilization | 1s analyzed from 10s buffer | Sliding window (50% overlap, majority vote) |
+| Dequantization | `(s+128)/255` (wrong) | scale/zero_point from TFLite tensor |
+| Interpreter | Both branches return same message | Working LOW < HIGH + debounce |
+| Battery | Single read, linear voltage | 16-sample avg + LiPo lookup table |
+| Lead-off | No reconnect hysteresis | 500ms hysteresis |
+| Display | No I2C error recovery | Retry on init, I2C ping before write |
+| Watchdog | `delay(10)` hack | `esp_task_wdt` configured explicitly |
 
 ## Quick Start
 
@@ -27,7 +43,7 @@ Offline ECG screening device with on-device AI inference. Runs entirely on an ES
 ### After Training Real Models
 
 ```bash
-# Convert trained .tflite → C header arrays
+# Convert trained .tflite → C header arrays (with extern "C" guards)
 ./convert_tflite_to_headers.sh ../heart-lens-training/models models/
 ```
 
@@ -37,7 +53,7 @@ Offline ECG screening device with on-device AI inference. Runs entirely on an ES
 
 | ESP32 Pin | Connects To | Function |
 |-----------|-------------|----------|
-| GPIO34 | AD8232 OUTPUT | ECG signal (ADC1_CH6) |
+| GPIO34 | AD8232 OUTPUT | ECG signal (ADC1_CH6, I2S-driven) |
 | GPIO32 | AD8232 LOFF+ | Lead-off detect positive |
 | GPIO33 | AD8232 LOFF- | Lead-off detect negative |
 | GPIO21 | SSD1306 SDA | I2C data (4.7k pull-up) |
@@ -61,7 +77,7 @@ Offline ECG screening device with on-device AI inference. Runs entirely on an ES
 
 ```
 Electrode LA ──→ AD8232 IN+
-Electrode RA ──→ AD8232 IN-     AD8232 OUTPUT ──→ ESP32 GPIO34 (ADC)
+Electrode RA ──→ AD8232 IN-     AD8232 OUTPUT ──→ ESP32 GPIO34 (I2S ADC)
 Electrode RL ──→ AD8232 RLD     LOFF+ ──→ GPIO32, LOFF- ──→ GPIO33
 ```
 
@@ -72,22 +88,22 @@ Electrode RL ──→ AD8232 RLD     LOFF+ ──→ GPIO32, LOFF- ──→ GP
 ```
          ┌──────────────────────────────────────┐
          │                                      ▼
-    ┌────────┐  lead_off   ┌──────────┐  buffer  ┌───────────┐
-    │  IDLE  │───────────▶│ SAMPLING │───full──▶│ INFERENCE │
-    └────┬───┘            └──────────┘          └─────┬─────┘
-         ▲                                            │
-         │                 ┌──────────┐                │
-         │                 │ DISPLAY  │◄───────────────┘
-         │                 └────┬─────┘
-         │                      │ 10s timeout
-         └──────────────────────┘
+    ┌────────┐  lead_off   ┌──────────┐  full  ┌───────────┐
+    │  IDLE  │───────────▶│ SAMPLING │──────▶│ INFERENCE │
+    └────┬───┘            └──────────┘        └─────┬─────┘
+         ▲                                          │
+         │                ┌──────────┐               │
+         │                │ DISPLAY  │◄──────────────┘
+         │                └────┬─────┘
+         │                     │ 10s timeout
+         └─────────────────────┘
 ```
 
 | State | Action | Duration |
 |-------|--------|----------|
 | **IDLE** | Check battery, check lead-off, start ADC | Until start trigger |
-| **SAMPLING** | ADC fill circular buffer (360 Hz, 3600 samples) | 10 seconds |
-| **INFERENCE** | Run denoiser + classifier + interpreter | ~50-100 ms |
+| **SAMPLING** | ADC fill circular buffer (I2S, 360 Hz, 3600 samples) | 10 seconds |
+| **INFERENCE** | Conv1D denoiser + 1D-CNN classifier (sliding window) | ~50-100 ms |
 | **DISPLAY** | Show result, refresh battery bar | 10 seconds |
 | **LOW_BATTERY** | Show warning, halt inference | Until charged >3.2V |
 | **ERROR** | Show error message, restart | 5 seconds |
@@ -98,22 +114,22 @@ Electrode RL ──→ AD8232 RLD     LOFF+ ──→ GPIO32, LOFF- ──→ GP
 
 ```
 HeartLens_Firmware/
-├── HeartLens_Firmware.ino       # Main: setup + loop + state machine
+├── HeartLens_Firmware.ino       # Main: setup + loop + state machine (v1.1)
 ├── src/
-│   ├── Config.h                 # All pins, thresholds, constants
-│   ├── adc_sampler.h/.cpp       # ADC sampling on Core 0 (FreeRTOS)
-│   ├── ecg_processor.h/.cpp     # TFLite Micro inference pipeline
+│   ├── Config.h                 # All pins, thresholds, ADC cal, WDT config
+│   ├── adc_sampler.h/.cpp       # I2S ADC sampling on Core 0 (FreeRTOS + mutex)
+│   ├── ecg_processor.h/.cpp     # TFLite Micro inference (sliding window)
 │   ├── interpreter.h/.cpp       # Confidence → plain-language output
-│   ├── display.h/.cpp           # SSD1306 OLED driver
-│   ├── battery.h/.cpp           # Battery voltage monitoring
-│   ├── lead_off.h/.cpp          # Electrode disconnect detection
+│   ├── display.h/.cpp           # SSD1306 OLED (I2C error recovery)
+│   ├── battery.h/.cpp           # LiPo monitoring (16-sample avg + lookup)
+│   ├── lead_off.h/.cpp          # Electrode disconnect (hysteresis)
 │   └── debug.h                  # Serial debug macros
 ├── models/
-│   ├── denoiser_model.h         # int8 quantized denoiser (C array)
+│   ├── denoiser_model.h         # Conv1D int8 quantized denoiser (C array)
 │   └── classifier_model.h       # int8 quantized classifier (C array)
 ├── lib/tensorflow_lite/         # TFLite Micro source (25 MB)
 ├── setup_tflite_micro.sh        # Download script for TFLite Micro
-└── convert_tflite_to_headers.sh # .tflite → .h conversion script
+└── convert_tflite_to_headers.sh # .tflite → .h with extern "C" guards
 ```
 
 ---
@@ -122,36 +138,32 @@ HeartLens_Firmware/
 
 ### ADC Sampling (Core 0)
 
-A FreeRTOS task pinned to Core 0 reads GPIO34 at 360 Hz using `analogRead()`. Samples are stored in a 3600-element circular buffer (`int16_t`). When the buffer wraps (10 seconds elapsed), a flag signals the main loop on Core 1.
+A FreeRTOS task pinned to Core 0 reads GPIO34 at 360 Hz using **I2S-driven ADC** with `esp_adc_cal` for voltage calibration. Samples are 4x oversampled and averaged per tick. A FreeRTOS **mutex** protects the shared buffer between cores. The task is properly destroyed during inference phase.
 
 ### TFLite Inference Pipeline (Core 1)
 
-Two int8 quantized models run sequentially in a shared 120 KB arena:
+Two int8 quantized models run with **sliding window inference** (50% overlap):
 
 1. **Denoiser** (Conv1D autoencoder): input [1,360,1] → output [1,360,1]
+   - 3-5x faster than LSTM on ESP32
    - Removes motion artifacts, baseline wander, PLI, EMG noise
 2. **Classifier** (1D-CNN): input [1,360,1] → output [1,6]
-   - 3 conv blocks (8/16/32 filters), global average pooling, softmax
+   - 3 conv blocks (32/64/128 filters), sliding window + majority vote
 
-Raw ADC values (0-4095) are mapped to int8 (-128 to 127) before inference.
+Raw ADC values (millivolts) are centered at 1650mV and scaled to int8.
 
 ### Rule Interpreter
 
-| Confidence | Output |
-|------------|--------|
-| > 0.75 | Class-specific message (Normal / Seek attention / See doctor) |
-| 0.55 – 0.75 | "Signal unclear. Please reattach electrodes and try again." |
-| < 0.55 | "Signal unclear. Please reattach electrodes and try again." |
+| Confidence Level | Behavior |
+|-----------------|----------|
+| ≥ 0.75 | Class-specific message with urgency |
+| 0.55 – 0.75 | Class-specific message with "Possible:" prefix |
+| < 0.55 | "Signal unclear" message |
+| Normal within 30s debounce | Normal result shown regardless of current reading |
 
 ### Display Output (SSD1306 128x64)
 
-Four possible plain-language messages:
-1. "Heart rhythm looks normal."
-2. "Unusual rhythm detected. Please see a doctor soon."
-3. "Irregular rhythm detected. Please seek medical attention."
-4. "Signal unclear. Please reattach electrodes and try again."
-
-A battery icon in the top-right corner shows charge level. Status bar at top shows urgency (NORMAL / CAUTION / ALERT / ERROR).
+Four plain-language messages with urgency color bar. Battery icon with lookup-table-based percentage. I2C communication is verified before each write with automatic recovery.
 
 ---
 
@@ -162,10 +174,14 @@ A battery icon in the top-right corner shows charge level. Status bar at top sho
 | SAMPLE_RATE_Hz | 360 | ADC sampling frequency |
 | WINDOW_SECONDS | 10 | Buffer duration for one inference |
 | TENSOR_ARENA_SIZE | 122880 (120 KB) | Shared TFLite memory arena |
+| INFERENCE_STRIDE | 180 | Sliding window stride (50% overlap) |
 | CONFIDENCE_HIGH | 0.75 | Threshold for confident result |
 | CONFIDENCE_LOW | 0.55 | Threshold for unclear signal |
+| NORMAL_DEBOUNCE_MS | 30000 | Suppress alerts after normal reading |
 | BAT_WARN_MV | 3400 | Low battery warning threshold |
 | BAT_STOP_MV | 3200 | Critical battery halt threshold |
+| BAT_ADC_SAMPLES | 16 | Battery averaging filter |
+| WDT_TIMEOUT_MS | 10000 | Hardware watchdog timeout |
 
 ---
 
@@ -177,7 +193,7 @@ Enable debug output by uncommenting in `src/debug.h`:
 #define DEBUG_ENABLED
 ```
 
-This enables Serial output showing:
+Output includes:
 - State transitions
 - Per-stage inference timestamps (micros)
 - Class scores and confidence
@@ -208,8 +224,8 @@ Training scripts live in `../heart-lens-training/`:
 ```bash
 cd ../heart-lens-training
 python3 data_loader.py              # Download MIT-BIH, extract segments
-python3 train_denoiser.py           # Train LSTM denoiser → int8 TFLite
-python3 train_classifier.py          # Train 1D-CNN classifier → int8 TFLite
+python3 train_denoiser.py           # Train Conv1D denoiser → int8 TFLite
+python3 train_classifier.py         # Train 1D-CNN classifier → int8 TFLite
 ```
 
 See `../heart-lens-training/TRAINING_DATA.md` for dataset statistics.

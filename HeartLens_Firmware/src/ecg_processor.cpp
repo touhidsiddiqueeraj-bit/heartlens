@@ -6,7 +6,6 @@
 #include <Arduino.h>
 #include <cstring>
 
-// TFLite Micro headers — adjust include path if needed
 #include <tensorflow/lite/micro/all_ops_resolver.h>
 #include <tensorflow/lite/micro/micro_interpreter.h>
 #include <tensorflow/lite/micro/micro_log.h>
@@ -26,96 +25,132 @@ bool EcgProcessor::begin() {
   return true;
 }
 
-InferenceResult EcgProcessor::runInference(int16_t* samples, int length) {
-  InferenceResult result = {0, 0.0f, false};
-  if (!_initialized) return result;
+float EcgProcessor::dequantizeInt8(int8_t value, float scale, int zeroPoint) {
+  return ((float)value - (float)zeroPoint) * scale;
+}
 
-  Serial.println("[ECG] Running denoiser...");
-  unsigned long t0 = micros();
+WindowResult EcgProcessor::runSlidingInference(int16_t* samples, int length,
+                                                int windowSize, int stride) {
+  WindowResult wr;
+  memset(wr.classVotes, 0, sizeof(wr.classVotes));
+  wr.totalWindows = 0;
 
-  // ─── Stage 1: Load denoiser model ──────────────────────────────
-  tflite::AllOpsResolver denoiserResolver;
+  if (!_initialized || length < windowSize) return wr;
+
+  // Shared arena halves: first half for denoiser, second half for classifier
+  uint8_t* arena1 = (uint8_t*)_arena;
+  uint8_t* arena2 = (uint8_t*)_arena + _arenaSize / 2;
+  int halfArena = _arenaSize / 2;
+
+  tflite::AllOpsResolver resolver;
+
+  // Load models once, reuse interpreters
   const tflite::Model* denoiserModel = tflite::GetModel(denoiser_dummy_tflite);
-  if (denoiserModel->version() != TFLITE_SCHEMA_VERSION) {
-    Serial.printf("[ECG] Denoiser schema mismatch: %d\n", denoiserModel->version());
-    return result;
-  }
+  const tflite::Model* classifierModel = tflite::GetModel(classifier_dummy_tflite);
 
-  tflite::MicroInterpreter denoiserInterp(
-    denoiserModel, denoiserResolver, (uint8_t*)_arena, _arenaSize / 2
-  );
+  tflite::MicroInterpreter denoiserInterp(denoiserModel, resolver, arena1, halfArena);
   if (denoiserInterp.AllocateTensors() != kTfLiteOk) {
     Serial.println("[ECG] Denoiser alloc failed");
-    return result;
+    return wr;
+  }
+
+  tflite::MicroInterpreter classifierInterp(classifierModel, resolver, arena2, halfArena);
+  if (classifierInterp.AllocateTensors() != kTfLiteOk) {
+    Serial.println("[ECG] Classifier alloc failed");
+    return wr;
   }
 
   TfLiteTensor* denoiserInput = denoiserInterp.input(0);
   TfLiteTensor* denoiserOutput = denoiserInterp.output(0);
-
-  // Map ADC samples (0-4095) to int8 (-128 to 127)
-  int8_t* dIn = denoiserInput->data.int8;
-  for (int i = 0; i < length && i < denoiserInput->dims->data[1]; i++) {
-    dIn[i] = (int8_t)((samples[i] - 2048) >> 4);  // scale to int8
-  }
-
-  if (denoiserInterp.Invoke() != kTfLiteOk) {
-    Serial.println("[ECG] Denoiser invoke failed");
-    return result;
-  }
-
-  unsigned long t1 = micros();
-  Serial.printf("[ECG] Denoiser done: %lu us\n", t1 - t0);
-
-  // ─── Stage 2: Load classifier model ────────────────────────────
-  tflite::AllOpsResolver classifierResolver;
-  const tflite::Model* classifierModel = tflite::GetModel(classifier_dummy_tflite);
-  if (classifierModel->version() != TFLITE_SCHEMA_VERSION) {
-    Serial.printf("[ECG] Classifier schema mismatch: %d\n", classifierModel->version());
-    return result;
-  }
-
-  // Use second half of arena
-  uint8_t* arena2 = (uint8_t*)_arena + _arenaSize / 2;
-  tflite::MicroInterpreter classifierInterp(
-    classifierModel, classifierResolver, arena2, _arenaSize / 2
-  );
-  if (classifierInterp.AllocateTensors() != kTfLiteOk) {
-    Serial.println("[ECG] Classifier alloc failed");
-    return result;
-  }
-
   TfLiteTensor* classInput = classifierInterp.input(0);
   TfLiteTensor* classOutput = classifierInterp.output(0);
 
-  // Copy denoiser output to classifier input
-  memcpy(classInput->data.int8, denoiserOutput->data.int8,
-         min(denoiserOutput->bytes, classInput->bytes));
+  int denoiserInputLen = denoiserInput->dims->data[1];
+  int classInputLen = classInput->dims->data[1];
+  int numClasses = classOutput->dims->data[classOutput->dims->size - 1];
 
-  if (classifierInterp.Invoke() != kTfLiteOk) {
-    Serial.println("[ECG] Classifier invoke failed");
-    return result;
+  for (int start = 0; start + windowSize <= length; start += stride) {
+    unsigned long t0 = micros();
+
+    // Map ADC samples (millivolts) to int8 model input
+    int8_t* dIn = denoiserInput->data.int8;
+    int copyLen = (windowSize < denoiserInputLen) ? windowSize : denoiserInputLen;
+    for (int i = 0; i < copyLen; i++) {
+      // Scale millivolts (0-3300) to int8 range centered at 0
+      int idx = start + i;
+      dIn[i] = (int8_t)((samples[idx] - 1650) >> 4);
+    }
+
+    if (denoiserInterp.Invoke() != kTfLiteOk) {
+      Serial.println("[ECG] Denoiser invoke failed");
+      continue;
+    }
+
+    // Copy denoiser output to classifier input
+    int classCopyLen = (denoiserOutput->bytes < (size_t)classInputLen)
+                         ? denoiserOutput->bytes : (size_t)classInputLen;
+    memcpy(classInput->data.int8, denoiserOutput->data.int8, classCopyLen);
+
+    if (classifierInterp.Invoke() != kTfLiteOk) {
+      Serial.println("[ECG] Classifier invoke failed");
+      continue;
+    }
+
+    // Proper dequantization of int8 softmax output
+    float classScale = classOutput->params.scale;
+    int classZeroPoint = classOutput->params.zero_point;
+
+    int8_t* scores = classOutput->data.int8;
+    float maxScore = -1e10f;
+    int maxIdx = 0;
+    for (int i = 0; i < numClasses; i++) {
+      float prob = dequantizeInt8(scores[i], classScale, classZeroPoint);
+      prob = (prob < 0.0f) ? 0.0f : prob;  // clamp negative
+      if (prob > maxScore) {
+        maxScore = prob;
+        maxIdx = i;
+      }
+    }
+
+    wr.classVotes[maxIdx]++;
+    wr.totalWindows++;
+
+    unsigned long t1 = micros();
+    DEBUG_PRINTF("[ECG] Window %d: class=%d confidence=%.3f (%lu us)\n",
+                 wr.totalWindows, maxIdx, maxScore, t1 - t0);
   }
 
-  unsigned long t2 = micros();
-  Serial.printf("[ECG] Classifier done: %lu us\n", t2 - t1);
-  Serial.printf("[ECG] Total inference: %lu us\n", t2 - t0);
+  return wr;
+}
 
-  // ─── Extract result ────────────────────────────────────────────
-  int8_t* scores = classOutput->data.int8;
-  int numClasses = classOutput->dims->data[classOutput->dims->size - 1];
-  float maxScore = -128.0f;
-  int maxIdx = 0;
-  for (int i = 0; i < numClasses; i++) {
-    float normalized = (scores[i] + 128.0f) / 255.0f;
-    if (normalized > maxScore) {
-      maxScore = normalized;
-      maxIdx = i;
+InferenceResult EcgProcessor::runInference(int16_t* samples, int length) {
+  InferenceResult result = {0, 0.0f, false};
+  if (!_initialized) return result;
+
+  int ws = (length < MODEL_INPUT_SAMPLES) ? length : MODEL_INPUT_SAMPLES;
+  WindowResult wr = runSlidingInference(samples, length, ws, INFERENCE_STRIDE);
+
+  if (wr.totalWindows == 0) return result;
+
+  // Majority vote across windows
+  int bestClass = 0;
+  int bestVotes = 0;
+  int totalVotes = 0;
+  for (int i = 0; i < 6; i++) {
+    totalVotes += wr.classVotes[i];
+    if (wr.classVotes[i] > bestVotes) {
+      bestVotes = wr.classVotes[i];
+      bestClass = i;
     }
   }
 
-  result.classId = maxIdx;
-  result.confidence = maxScore;
+  result.classId = bestClass;
+  result.confidence = (float)bestVotes / (float)wr.totalWindows;
   result.valid = true;
+
+  Serial.printf("[ECG] Sliding inference: %d windows, majority=class %d (%.1f%%)\n",
+                wr.totalWindows, bestClass, result.confidence * 100.0f);
+
   return result;
 }
 

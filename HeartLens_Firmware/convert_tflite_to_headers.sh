@@ -1,15 +1,31 @@
 #!/bin/bash
-# convert_tflite_to_headers.sh
-# Converts trained .tflite files to C header arrays for the firmware.
-# Usage: ./convert_tflite_to_headers.sh [training_dir] [firmware_dir]
+set -e
 
-TRAIN_DIR="${1:-$(dirname "$0")/heart-lens-training/models}"
-FW_DIR="${2:-$(dirname "$0")/HeartLens_Firmware/models}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TRAIN_DIR="${1:-$SCRIPT_DIR/heart-lens-training/models}"
+FW_DIR="${2:-$SCRIPT_DIR/HeartLens_Firmware/models}"
+
+if [ ! -d "$TRAIN_DIR" ]; then
+  echo "ERROR: Source directory not found: $TRAIN_DIR" >&2
+  exit 1
+fi
+
+mkdir -p "$FW_DIR"
 
 for f in "$TRAIN_DIR"/*.tflite; do
+  [ -f "$f" ] || continue
   name=$(basename "$f" .tflite)
   out="$FW_DIR/${name}.h"
-  xxd -i "$f" > "$out"
+
+  array_name="$(echo "$name" | sed 's/[^a-zA-Z0-9_]/_/g')"
+
+  {
+    printf '#ifdef __cplusplus\nextern "C" {\n#endif\n\n'
+    xxd -i "$f" | sed 's/^unsigned /unsigned const /'
+    printf '\n#ifdef __cplusplus\n}\n#endif\n'
+  } > "$out"
+
   echo "  $f → $out"
 done
+
 echo "Done."

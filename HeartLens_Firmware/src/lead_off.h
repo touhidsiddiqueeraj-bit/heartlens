@@ -14,8 +14,10 @@ private:
   int _pinPos;
   int _pinNeg;
   unsigned long _thresholdMs;
+  unsigned long _reconnectMs;
   unsigned long _lastStableMs;
   bool _lastState;
+  bool _confirmedDisconnected;
 };
 
 #endif

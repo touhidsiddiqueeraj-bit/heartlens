@@ -2,6 +2,9 @@
 #define ADC_SAMPLER_H
 
 #include <cstdint>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#include <esp_adc_cal.h>
 
 class AdcSampler {
 public:
@@ -21,8 +24,14 @@ private:
   int16_t* _buffer;
   volatile int _writeIndex;
   volatile bool _bufferFull;
+  volatile bool _running;
+  TaskHandle_t _taskHandle;
+  SemaphoreHandle_t _mutex;
+
+  esp_adc_cal_characteristics_t _adcChars;
 
   static void samplingTask(void* param);
+  void adcReadBlock(int16_t* out, int count);
 };
 
 #endif

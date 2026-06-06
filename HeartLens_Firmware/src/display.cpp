@@ -8,13 +8,14 @@
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
 
-// Colors for each urgency level
-static const uint16_t COLOR_NORMAL = SSD1306_WHITE;
-static const uint16_t COLOR_MEDIUM = SSD1306_WHITE;
-static const uint16_t COLOR_HIGH = SSD1306_WHITE;
-static const uint16_t COLOR_ERROR = SSD1306_WHITE;
+Display::Display()
+  : _initialized(false), _oled(nullptr), _addr(OLED_I2C_ADDR),
+    _lastBatteryPercent(-1) {}
 
-Display::Display() : _initialized(false), _oled(nullptr), _addr(OLED_I2C_ADDR) {}
+bool Display::i2cPing() {
+  Wire.beginTransmission(_addr);
+  return Wire.endTransmission() == 0;
+}
 
 bool Display::begin(int sda, int scl, uint8_t addr) {
   _addr = addr;
@@ -23,19 +24,32 @@ bool Display::begin(int sda, int scl, uint8_t addr) {
   if (!_oled) return false;
 
   auto* oled = static_cast<Adafruit_SSD1306*>(_oled);
-  if (!oled->begin(SSD1306_SWITCHCAPVCC, addr)) {
-    Serial.println("[Display] SSD1306 init failed!");
-    return false;
+  for (int retry = 0; retry < OLED_I2C_RETRIES; retry++) {
+    if (oled->begin(SSD1306_SWITCHCAPVCC, addr)) {
+      oled->clearDisplay();
+      oled->setTextWrap(true);
+      _initialized = true;
+      return true;
+    }
+    delay(10);
   }
+  Serial.println("[Display] SSD1306 init failed after retries");
+  return false;
+}
 
-  oled->clearDisplay();
-  oled->setTextWrap(true);
-  _initialized = true;
-  return true;
+uint16_t Display::urgencyColor(Urgency urgency) {
+  switch (urgency) {
+    case Urgency::None:   return SSD1306_WHITE;
+    case Urgency::Medium: return SSD1306_WHITE;  // Monochrome OLED — can only do white
+    case Urgency::High:   return SSD1306_WHITE;  // Would use inverse pattern on color displays
+    case Urgency::Error:  return SSD1306_WHITE;
+    default:              return SSD1306_WHITE;
+  }
 }
 
 void Display::showSplash() {
   if (!_initialized) return;
+  if (!i2cPing()) { _initialized = false; return; }
   auto* oled = static_cast<Adafruit_SSD1306*>(_oled);
   oled->clearDisplay();
 
@@ -48,28 +62,22 @@ void Display::showSplash() {
   oled->setCursor(8, 36);
   oled->println("Starting...");
 
-  // Draw a simple heartbeat line
   for (int x = 0; x < 128; x++) {
     int y = 54 + (int)(4 * sin(x * 0.2 + millis() / 1000.0));
     oled->drawPixel(x, y, SSD1306_WHITE);
   }
 
   oled->display();
+  _lastBatteryPercent = -1;
 }
 
 void Display::showMessage(const String& text, Urgency urgency) {
   if (!_initialized) return;
+  if (!i2cPing()) { _initialized = false; return; }
   auto* oled = static_cast<Adafruit_SSD1306*>(_oled);
   oled->clearDisplay();
 
-  // Urgency indicator bar at top
-  uint16_t barColor;
-  switch (urgency) {
-    case Urgency::None:     barColor = SSD1306_WHITE; break;
-    case Urgency::Medium:   barColor = SSD1306_WHITE; break;
-    case Urgency::High:     barColor = SSD1306_WHITE; break;
-    default:                barColor = SSD1306_WHITE; break;
-  }
+  uint16_t barColor = urgencyColor(urgency);
 
   // Top status bar (inverted)
   oled->fillRect(0, 0, 128, 10, barColor);
@@ -84,7 +92,6 @@ void Display::showMessage(const String& text, Urgency urgency) {
     default:              oled->print("ERROR"); break;
   }
 
-  // Main message — word-wrap manually
   oled->setTextColor(SSD1306_WHITE);
   oled->setCursor(2, 16);
   oled->setTextSize(1);
@@ -93,7 +100,6 @@ void Display::showMessage(const String& text, Urgency urgency) {
   if (text.length() <= maxChars) {
     oled->println(text);
   } else {
-    // Simple word wrap
     int lastSpace = -1;
     for (int i = 0; i < text.length(); i++) {
       if (text[i] == ' ') lastSpace = i;
@@ -108,16 +114,19 @@ void Display::showMessage(const String& text, Urgency urgency) {
   }
 
   oled->display();
+  _lastBatteryPercent = -1;
 }
 
 void Display::showBattery(int percent) {
   if (!_initialized) return;
+  if (percent == _lastBatteryPercent) return;  // dirty-flag: skip if unchanged
+  _lastBatteryPercent = percent;
+
   auto* oled = static_cast<Adafruit_SSD1306*>(_oled);
 
-  // Draw battery icon in top-right corner
   int bx = 104, by = 1;
-  oled->drawRect(bx, by, 18, 8, SSD1306_WHITE);     // battery body
-  oled->drawRect(bx + 18, by + 2, 2, 4, SSD1306_WHITE);  // terminal
+  oled->drawRect(bx, by, 18, 8, SSD1306_WHITE);
+  oled->drawRect(bx + 18, by + 2, 2, 4, SSD1306_WHITE);
 
   int fillWidth = (percent * 14) / 100;
   if (fillWidth > 0) {
@@ -129,6 +138,7 @@ void Display::showBattery(int percent) {
 
 void Display::clear() {
   if (!_initialized) return;
+  if (!i2cPing()) { _initialized = false; return; }
   auto* oled = static_cast<Adafruit_SSD1306*>(_oled);
   oled->clearDisplay();
   oled->display();
@@ -140,6 +150,7 @@ void Display::showSignalUnclear() {
 
 void Display::showIdle() {
   if (!_initialized) return;
+  if (!i2cPing()) { _initialized = false; return; }
   auto* oled = static_cast<Adafruit_SSD1306*>(_oled);
   oled->clearDisplay();
   oled->setCursor(8, 24);
@@ -149,4 +160,5 @@ void Display::showIdle() {
   oled->setCursor(8, 36);
   oled->println("to begin...");
   oled->display();
+  _lastBatteryPercent = -1;
 }

@@ -23,7 +23,7 @@ public:
   void setLastNormalTime(unsigned long ms);
 
 private:
-  unsigned long _lastNormalTime;  // debounce: avoid re-triggering
+  unsigned long _lastNormalTime;
 };
 
 #endif

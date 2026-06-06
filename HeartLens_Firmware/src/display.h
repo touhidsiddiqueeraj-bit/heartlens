@@ -17,8 +17,12 @@ public:
 
 private:
   bool _initialized;
-  void* _oled;  // Adafruit_SSD1306 pointer (opaque to avoid include here)
+  void* _oled;
   uint8_t _addr;
+  int _lastBatteryPercent;  // dirty-flag: avoid redundant redraws
+
+  uint16_t urgencyColor(Urgency urgency);
+  bool i2cPing();
 };
 
 #endif
