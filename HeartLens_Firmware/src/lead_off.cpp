@@ -27,20 +27,23 @@ bool LeadOffDetector::isDisconnected() {
     _lastStableMs = now;
     _lastState = currentlyOff;
     if (!currentlyOff) {
-      // Transition from off → on: hysteresis hold
+      // Transition from off → on: hold disconnect state for hysteresis period
       return _confirmedDisconnected;
     }
-    return false;  // debounce on disconnect
+    return false;  // first disconnect reading — start debounce timer
   }
 
   if (currentlyOff) {
+    // Pin is still off — check if debounce period has elapsed
     if (now - _lastStableMs > _thresholdMs) {
       _confirmedDisconnected = true;
       return true;
     }
   } else {
-    // Stable connected — clear confirmed state
-    _confirmedDisconnected = false;
+    // Pin is still on — only clear confirmed once hysteresis hold elapses
+    if (_confirmedDisconnected && (now - _lastStableMs > _reconnectMs)) {
+      _confirmedDisconnected = false;
+    }
   }
 
   return _confirmedDisconnected;

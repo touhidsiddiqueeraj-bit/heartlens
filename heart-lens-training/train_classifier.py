@@ -17,29 +17,6 @@ os.makedirs(OUT_DIR, exist_ok=True)
 CLASS_NAMES = ["Normal", "AFib", "PVC", "Tachycardia", "Bradycardia", "ST Abnormality"]
 
 
-def normalize_for_firmware(segment):
-    """Firmware-compatible normalization.
-
-    Centers raw ADC/mV signal at 1650 (midpoint of 0–3300 mV range),
-    right-shifts by 4 (divide by 16), then clips to [-128, 127].
-    This mirrors the int8 quantization the firmware applies at inference.
-
-    Parameters
-    ----------
-    segment : np.ndarray
-        Raw ECG segment in mV range [0, 3300].
-
-    Returns
-    -------
-    np.ndarray (int8)
-        Firmware-normalized segment.
-    """
-    centered = segment.astype(np.float32) - 1650.0
-    shifted = centered / 16.0
-    clipped = np.clip(np.round(shifted), -128, 127).astype(np.int8)
-    return clipped
-
-
 def build_classifier(input_shape=(WINDOW_SAMPLES, 1), num_classes=NUM_CLASSES):
     """3 Conv1D blocks (32 / 64 / 128), kernel 5, BN, MaxPool → GAP → Dense(64) → Dropout(0.5) → Dense(6, Softmax)."""
     inputs = tf.keras.layers.Input(shape=input_shape, name="classifier_input")
@@ -105,9 +82,15 @@ def load_data_with_record_tracking(data_dir="./mitdb", max_per_class=None):
             if start < 0 or end >= len(signal):
                 continue
             seg = signal[start:end].copy()
-            seg_max = max(abs(seg.min()), abs(seg.max()))
-            if seg_max > 0:
-                seg = seg / seg_max
+            # Centered normalization matching firmware:
+            # subtract mean, divide by max absolute deviation
+            seg_center = np.mean(seg)
+            centered = seg - seg_center
+            seg_scale = np.max(np.abs(centered))
+            if seg_scale > 1e-12:
+                seg = centered / seg_scale
+            else:
+                seg = centered
             by_class[cls].append((seg, rec_name))
             count += 1
         print(f"  {rec_name}: {count} segments")

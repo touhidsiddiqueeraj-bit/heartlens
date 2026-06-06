@@ -16,9 +16,14 @@ def quantize_tflite(model_path, output_path=None, rep_data_size=200, input_shape
 
     model = tf.keras.models.load_model(model_path)
 
+    # Representative dataset using realistic ECG-like signals
+    # (uniform in [-1, 1] approximates the centered/normalized ECG distribution)
+    rng = np.random.default_rng(42)
     def rep_data():
         for _ in range(rep_data_size):
-            yield [np.random.randn(1, *input_shape).astype(np.float32)]
+            # Uniform noise in [-1, 1] — crude approximation of centered ECG
+            data = rng.uniform(-1.0, 1.0, (1, *input_shape)).astype(np.float32)
+            yield [data]
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]

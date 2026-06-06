@@ -4,41 +4,62 @@
 
 **Source**: PhysioNet (https://physionet.org/content/mitdb/)
 **Recordings**: 48 half-hour ECG recordings (2 leads each, 360 Hz)
-**Total segments extracted**: 35,864 (10-second windows centered on R-peaks)
 
-## Class Distribution
+## Class Distribution (v1.1 — cleaned labels)
 
-| Class | Name | Segments |
-|-------|------|----------|
-| 0 | Normal Sinus Rhythm | 29,851 |
-| 1 | Atrial Fibrillation (AFib) | 705 |
-| 2 | Premature Ventricular Contraction (PVC) | 2,227 |
-| 3 | Tachycardia | 455 |
-| 4 | Bradycardia | 2,556 |
-| 5 | ST Abnormality | 70 |
-| **Total** | | **35,864** |
+After removing pathological proxy mappings (see Clinical Label Audit below),
+only 3 cleanly identifiable classes remain:
 
-## Train / Validation / Test Split (capped at 5,000 per class)
+| Class | Name | Source Annotation | Segments |
+|-------|------|-------------------|----------|
+| 0 | Normal Sinus Rhythm | N (normal beat) | ~29,851 |
+| 1 | Atrial Fibrillation (proxy) | A (atrial premature beat) | ~705 |
+| 2 | Premature Ventricular Contraction | V (PVC) | ~2,227 |
+| 3 | Tachycardia | *no training data* | — |
+| 4 | Bradycardia | *no training data* | — |
+| 5 | ST Abnormality | *no training data* | — |
 
-| Set | Normal | AFib | PVC | Tachy | Brady | ST Abn | Total |
-|-----|--------|------|-----|-------|-------|--------|-------|
-| Train | 1,399 | 493 | 1,399 | 318 | 1,399 | 48 | 5,056 |
-| Validation | 300 | 106 | 300 | 68 | 300 | 11 | 1,085 |
-| Test | 301 | 106 | 301 | 69 | 301 | 11 | 1,089 |
+**Classes 3–5 have no training data** after removing dangerous proxy mappings.
+These classifier outputs are inactive until properly annotated data is sourced.
 
-## Annotation → Class Mapping
+## Clinical Label Audit
 
-| MIT-BIH Symbol | Beat Description | Mapped Class |
-|----------------|-----------------|--------------|
-| N | Normal beat | 0 — Normal |
-| L | Left bundle branch block | 0 — Normal |
-| R | Right bundle branch block | 0 — Normal |
-| A | Atrial premature beat | 1 — AFib |
-| V | Premature ventricular contraction | 2 — PVC |
-| ! | Ventricular flutter | 3 — Tachycardia |
-| F | Fusion beat | 3 — Tachycardia |
-| / | Paced beat | 4 — Bradycardia |
-| f | Fusion of paced beat | 4 — Bradycardia |
-| E | Atrial escape beat | 5 — ST Abnormality |
-| J | Nodal escape beat | 5 — ST Abnormality |
-| S | Supraventricular premature beat | 5 — ST Abnormality |
+The following proxy mappings were present in v1.0 and **removed in v1.1**:
+
+| Removed Mapping | Original Class | Reason for Removal |
+|-----------------|----------------|--------------------|
+| LBBB (L) → Normal | 0 | Pathological conduction abnormality |
+| RBBB (R) → Normal | 0 | Pathological conduction abnormality |
+| Ventricular flutter (!) → Tachy | 3 | Pre-arrest rhythm, distinct from SVT |
+| Fusion beat (F) → Tachy | 3 | Non-specific |
+| Paced (/) → Brady | 4 | Pacing is treatment, not rhythm diagnosis |
+| Fusion paced (f) → Brady | 4 | Same |
+| Atrial escape (E) → ST Abn | 5 | Different electrophysiological mechanism |
+| Nodal escape (J) → ST Abn | 5 | Same |
+| Aberrated APB (a) → ST Abn | 5 | Same |
+| Supraventricular premature (S) → ST Abn | 5 | Same |
+| Nodal premature (j) → ST Abn | 5 | Same |
+
+## Annotation → Class Mapping (v1.1)
+
+| MIT-BIH Symbol | Beat Description | Mapped Class | Clinical Validity |
+|----------------|-----------------|--------------|-------------------|
+| N | Normal beat | 0 — Normal | ✓ Correct |
+| A | Atrial premature beat | 1 — AFib (proxy) | ⚠ Proxy — replace with AFDB |
+| V | Premature ventricular contraction | 2 — PVC | ✓ Correct |
+
+## Train / Validation / Test Split
+
+Using **patient-level (record-level) splitting** to prevent data leakage:
+- 70% of records → training
+- 15% of records → validation
+- 15% of records → test
+
+## Normalization
+
+Each segment is normalized to [-1, 1] using centered scaling:
+1. Subtract segment mean
+2. Divide by max absolute deviation
+
+This is reproduced identically in firmware at inference time
+(per-buffer centering + scaling before TFLite input quantization).

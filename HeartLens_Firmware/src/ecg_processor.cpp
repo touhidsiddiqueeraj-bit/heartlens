@@ -69,16 +69,31 @@ WindowResult EcgProcessor::runSlidingInference(int16_t* samples, int length,
   int classInputLen = classInput->dims->data[1];
   int numClasses = classOutput->dims->data[classOutput->dims->size - 1];
 
+  // Pre-compute per-buffer normalization (same as training: [-1, 1])
+  float center = 0.0f;
+  for (int i = 0; i < length; i++) center += samples[i];
+  center /= length;
+  float maxDev = 0.0f;
+  for (int i = 0; i < length; i++) {
+    float dev = (samples[i] > center) ? (samples[i] - center) : (center - samples[i]);
+    if (dev > maxDev) maxDev = dev;
+  }
+  if (maxDev < 1.0f) maxDev = 1.0f;  // prevent division by zero on flat signal
+
   for (int start = 0; start + windowSize <= length; start += stride) {
     unsigned long t0 = micros();
 
-    // Map ADC samples (millivolts) to int8 model input
     int8_t* dIn = denoiserInput->data.int8;
     int copyLen = (windowSize < denoiserInputLen) ? windowSize : denoiserInputLen;
     for (int i = 0; i < copyLen; i++) {
-      // Scale millivolts (0-3300) to int8 range centered at 0
+      // Normalize to [-1, 1] matching training pipeline
       int idx = start + i;
-      dIn[i] = (int8_t)((samples[idx] - 1650) >> 4);
+      float normalized = (samples[idx] - center) / maxDev;
+      normalized = (normalized < -1.0f) ? -1.0f : (normalized > 1.0f) ? 1.0f : normalized;
+      // Convert to int8 via model's quantization params
+      float iScale = denoiserInput->params.scale;
+      int iZero = denoiserInput->params.zero_point;
+      dIn[i] = (int8_t)((int)(normalized / iScale + iZero + 0.5f));
     }
 
     if (denoiserInterp.Invoke() != kTfLiteOk) {
