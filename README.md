@@ -39,6 +39,8 @@ A fully offline, sub-$15 ECG screening device that runs AI inference directly on
 heart-lens/
 ├── README.md                          # This file
 ├── LICENSE                            # MIT License
+├── requirements.txt                   # Python dependencies (auto-installed)
+├── auto_train.py                      # End-to-end training pipeline (CLI + GUI)
 ├── build_proposal.js                  # Node.js script to generate proposal .docx
 ├── circuit_diagram.md                 # Mermaid circuit diagram source
 ├── circuit_diagram.svg                # Rendered system block diagram
@@ -199,6 +201,25 @@ cd HeartLens_Firmware
 ---
 
 ## Training Pipeline
+
+### Automated End-to-End Pipeline
+
+A single-script entry point (`auto_train.py`) orchestrates everything — dependency installation, dataset loading, denoiser + classifier training, model conversion, and PDF report generation.
+
+```bash
+# Auto-installs missing deps, trains both models, outputs PDF report
+python3 auto_train.py --epochs 50 --max-per-class 3000
+
+# GUI mode (uses Tkinter)
+python3 auto_train.py --gui
+
+# Skip denoiser / classifier for faster iteration
+python3 auto_train.py --skip-denoiser --epochs 1 --max-per-class 20
+```
+
+**Auto-dep-install:** The script checks for `numpy`, `tensorflow`, `scikit-learn`, `matplotlib`, `fpdf2`, `scipy`, and `wfdb` on startup. Any missing package is installed via `pip` automatically before the training starts. No manual `pip install -r requirements.txt` needed.
+
+**GUI mode (`--gui`):** Launches a Tkinter window with parameter controls (epochs, max-per-class, data directory, skip toggles), a real-time log output panel, an indeterminate progress bar, and Run/Cancel buttons. The training runs in a background thread so the UI stays responsive.
 
 ### Dataset
 
