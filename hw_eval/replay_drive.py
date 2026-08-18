@@ -14,7 +14,7 @@ model on the PC; the hardware-leg F1 from the board's own inference.
 Usage:
     # Step 1 (on PC): run the digital leg + drive the board
     python3 hw_eval/replay_drive.py --port /dev/ttyACM0 \
-        --model heart-lens-training/models/classifier_int8.tflite
+        --model heart-lens-training/models/robust_classifier_int8.tflite
 
     # Step 2 (offline): compute F1 and Delta-F1 table
     python3 hw_eval/compute_delta.py --digital hw_eval/captures/digital.json \
@@ -120,7 +120,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", required=True, help="serial port of the board")
     ap.add_argument("--baud", type=int, default=115200)
-    ap.add_argument("--model", required=True, help="path to classifier_int8.tflite")
+    ap.add_argument("--model", required=True,
+                    help="path to robust_classifier_int8.tflite")
     ap.add_argument("--data-dir", default="./mitdb")
     ap.add_argument("--max-per-class", type=int, default=200)
     ap.add_argument("--out", default="hw_eval/captures",
