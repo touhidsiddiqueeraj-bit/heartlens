@@ -161,8 +161,16 @@ def load_record_segments(data_dir="./mitdb", max_per_class=None):
 
         per_class: Dict[int, List[Tuple[str, np.ndarray, NormalizationParams]]] = {c: [] for c in range(NUM_CLASSES)}
         for rec_name, seg, cls, norm in all_items:
-            if len(per_class[cls]) < max_per_class:
-                per_class[cls].append((rec_name, seg, norm))
+            per_class[cls].append((rec_name, seg, norm))
+
+        # Seeded random subsample per class so every record keeps
+        # representative segments (a [:max] slice would restrict each
+        # class to the first few alphabetically-sorted records).
+        rng = np.random.RandomState(0)
+        for cls, items in per_class.items():
+            if len(items) > max_per_class:
+                idx = rng.choice(len(items), max_per_class, replace=False)
+                per_class[cls] = [items[i] for i in sorted(idx)]
 
         record_segments.clear()
         for cls, items in per_class.items():

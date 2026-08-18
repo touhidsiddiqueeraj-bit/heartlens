@@ -50,8 +50,13 @@ def load_svdb(data_dir="./svdb"):
             import shutil
             shutil.rmtree(data_dir)
         os.makedirs(data_dir, exist_ok=True)
-        wfdb.dl_database('svdb', data_dir,
-                         records=[str(r) for r in SVDB_RECORDS])
+        # Download per record so a single 404 (e.g. record 813 does not
+        # exist on PhysioNet) cannot abort the whole experiment.
+        for rec in SVDB_RECORDS:
+            try:
+                wfdb.dl_database('svdb', data_dir, records=[str(rec)])
+            except Exception as e:
+                print(f"  {rec}: SKIP download ({e})")
 
     X, y = [], []
     for rec in os.listdir(data_dir):

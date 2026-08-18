@@ -95,9 +95,17 @@ def load_data_with_record_tracking(data_dir="./mitdb", max_per_class=None):
             count += 1
         print(f"  {rec_name}: {count} segments")
 
+    # Cap per class with a seeded random subsample across ALL records.
+    # A plain [:max_per_class] slice keeps only the first few
+    # (alphabetically sorted) records per class, so record-level test
+    # splits can end up with zero Normal/APB beats (observed: test set
+    # with 0 Normal segments -> F1 collapsed to ~0).
+    rng = np.random.RandomState(0)
     for c in range(NUM_CLASSES):
-        if max_per_class and len(by_class[c]) > max_per_class:
-            by_class[c] = by_class[c][:max_per_class]
+        items = by_class[c]
+        if max_per_class and len(items) > max_per_class:
+            idx = rng.choice(len(items), max_per_class, replace=False)
+            by_class[c] = [items[i] for i in sorted(idx)]
 
     return by_class
 

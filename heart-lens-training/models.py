@@ -43,11 +43,15 @@ def build_classifier(model_type="cnn", input_shape=(WINDOW_SAMPLES, 1),
 
     elif model_type == "lstm":
         x = _conv_block(inputs, 32, name="conv1")
-        x = tf.keras.layers.LSTM(64, name="lstm")(x)
+        # RNN(LSTMCell) instead of LSTM(64): never fuses into the cuDNN
+        # CudnnRNNV3 kernel, so the TFLite int8 converter accepts it
+        # (emits UnidirectionalSequenceLSTM, supported by TFLM).
+        x = tf.keras.layers.RNN(tf.keras.layers.LSTMCell(64), name="lstm")(x)
 
     elif model_type == "gru":
         x = _conv_block(inputs, 32, name="conv1")
-        x = tf.keras.layers.GRU(64, name="gru")(x)
+        # Same reasoning as LSTM: RNN(GRUCell) avoids cuDNN fusion.
+        x = tf.keras.layers.RNN(tf.keras.layers.GRUCell(64), name="gru")(x)
 
     elif model_type == "tcn":
         # Two dilated causal blocks with residual connections

@@ -80,6 +80,8 @@ def main():
     X_va = X_va.reshape(-1, WINDOW_SAMPLES, 1).astype(np.float32)
     X_te = X_te.reshape(-1, WINDOW_SAMPLES, 1).astype(np.float32)
     print(f"Train {X_tr.shape}  Val {X_va.shape}  Test {X_te.shape}")
+    print(f"y bincounts  train={np.bincount(y_tr)} val={np.bincount(y_va)} "
+          f"test={np.bincount(y_te)}")
 
     os.makedirs(args.models_dir, exist_ok=True)
     rows = []

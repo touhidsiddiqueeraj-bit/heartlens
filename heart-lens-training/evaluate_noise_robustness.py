@@ -70,6 +70,7 @@ def main():
     X_tr = X_tr.reshape(-1, WINDOW_SAMPLES, 1).astype(np.float32)
     X_te = X_te.reshape(-1, WINDOW_SAMPLES, 1).astype(np.float32)
     print(f"Train {X_tr.shape}, Test {X_te.shape}")
+    print(f"y bincounts  train={np.bincount(y_tr)} test={np.bincount(y_te)}")
 
     os.makedirs(args.models_dir, exist_ok=True)
     clf_path = os.path.join(args.models_dir, "robust_classifier.keras")
