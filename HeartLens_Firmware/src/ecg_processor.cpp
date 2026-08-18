@@ -1,5 +1,6 @@
 #include "ecg_processor.h"
 #include "Config.h"
+#include "debug.h"
 #include "models/denoiser_model.h"
 #include "models/classifier_model.h"
 
@@ -10,7 +11,9 @@
 #include <tensorflow/lite/micro/micro_interpreter.h>
 #include <tensorflow/lite/micro/micro_log.h>
 
-EcgProcessor::EcgProcessor() : _initialized(false), _arena(nullptr), _arenaSize(TENSOR_ARENA_SIZE) {}
+EcgProcessor::EcgProcessor()
+    : _initialized(false), _arena(nullptr), _arenaSize(TENSOR_ARENA_SIZE),
+      benchDenoiseUs(0), benchClassifyUs(0), benchTotalUs(0), benchWindows(0) {}
 
 bool EcgProcessor::begin() {
   _arena = malloc(_arenaSize);
@@ -29,10 +32,48 @@ float EcgProcessor::dequantizeInt8(int8_t value, float scale, int zeroPoint) {
   return ((float)value - (float)zeroPoint) * scale;
 }
 
+// ─── Signal quality gate ───────────────────────────────────────────
+// Heuristic SQI: rejects flat/saturated buffers and buffers dominated by
+// high-frequency (differential) energy — both indicate a corrupted or
+// disconnected signal that a classifier would otherwise judge confidently.
+static bool signalQualityOk(const int16_t* samples, int length) {
+  if (length < 32) return false;
+
+  int minV = samples[0], maxV = samples[0];
+  long long sum = 0;
+  for (int i = 0; i < length; i++) {
+    if (samples[i] < minV) minV = samples[i];
+    if (samples[i] > maxV) maxV = samples[i];
+    sum += samples[i];
+  }
+  float mean = (float)sum / length;
+  int range = maxV - minV;
+  if (range < 8) return false;  // essentially flat
+
+  // Saturation: >5% of samples pinned at extremes of the range
+  int edge = range / 20 + 1;
+  int saturated = 0;
+  long double diffEnergy = 0.0, sigEnergy = 0.0;
+  for (int i = 0; i < length; i++) {
+    if (samples[i] <= minV + edge || samples[i] >= maxV - edge) saturated++;
+    float s = (float)samples[i] - mean;
+    sigEnergy += (double)s * s;
+    if (i > 0) {
+      float d = (float)(samples[i] - samples[i - 1]);
+      diffEnergy += (double)d * d;
+    }
+  }
+  if ((float)saturated / length > SQI_FLAT_FRACTION) return false;
+
+  float noiseRatio = (sigEnergy > 0.0f) ? (float)(diffEnergy / sigEnergy) : 1.0f;
+  if (noiseRatio > SQI_NOISE_THRESHOLD * SQI_NOISE_THRESHOLD) return false;
+  return true;
+}
+
 WindowResult EcgProcessor::runSlidingInference(int16_t* samples, int length,
                                                 int windowSize, int stride) {
   WindowResult wr;
-  memset(wr.classVotes, 0, sizeof(wr.classVotes));
+  memset(wr.classScores, 0, sizeof(wr.classScores));
   wr.totalWindows = 0;
 
   if (!_initialized || length < windowSize) return wr;
@@ -68,6 +109,7 @@ WindowResult EcgProcessor::runSlidingInference(int16_t* samples, int length,
   int denoiserInputLen = denoiserInput->dims->data[1];
   int classInputLen = classInput->dims->data[1];
   int numClasses = classOutput->dims->data[classOutput->dims->size - 1];
+  if (numClasses > 8) numClasses = 8;
 
   // Pre-compute per-buffer normalization (same as training: [-1, 1])
   float center = 0.0f;
@@ -100,6 +142,7 @@ WindowResult EcgProcessor::runSlidingInference(int16_t* samples, int length,
       Serial.println("[ECG] Denoiser invoke failed");
       continue;
     }
+    unsigned long tDen = micros();
 
     // Copy denoiser output to classifier input
     int classCopyLen = (denoiserOutput->bytes < (size_t)classInputLen)
@@ -116,54 +159,73 @@ WindowResult EcgProcessor::runSlidingInference(int16_t* samples, int length,
     int classZeroPoint = classOutput->params.zero_point;
 
     int8_t* scores = classOutput->data.int8;
-    float maxScore = -1e10f;
-    int maxIdx = 0;
+    float probs[8];
+    float sumP = 0.0f;
     for (int i = 0; i < numClasses; i++) {
       float prob = dequantizeInt8(scores[i], classScale, classZeroPoint);
       prob = (prob < 0.0f) ? 0.0f : prob;  // clamp negative
-      if (prob > maxScore) {
-        maxScore = prob;
-        maxIdx = i;
-      }
+      probs[i] = prob;
+      sumP += prob;
     }
+    if (sumP <= 0.0f) continue;
+    for (int i = 0; i < numClasses; i++) probs[i] /= sumP;
 
-    wr.classVotes[maxIdx]++;
+    // Confidence-weighted accumulation: sum softmax probs per class
+    // (replaces argmax majority voting — review #13)
+    for (int i = 0; i < numClasses; i++) wr.classScores[i] += probs[i];
     wr.totalWindows++;
 
     unsigned long t1 = micros();
-    DEBUG_PRINTF("[ECG] Window %d: class=%d confidence=%.3f (%lu us)\n",
-                 wr.totalWindows, maxIdx, maxScore, t1 - t0);
+    benchDenoiseUs += (tDen - t0);
+    benchClassifyUs += (t1 - tDen);
+    benchTotalUs += (t1 - t0);
+    benchWindows++;
+
+    DEBUG_PRINTF("[ECG] Window %d: top class=%d conf=%.3f (%lu us)\n",
+                 wr.totalWindows, 0, sumP, t1 - t0);
   }
 
   return wr;
 }
 
 InferenceResult EcgProcessor::runInference(int16_t* samples, int length) {
-  InferenceResult result = {0, 0.0f, false};
+  InferenceResult result = {0, 0.0f, {0}, false, true};
   if (!_initialized) return result;
+
+  // Signal-quality gate before classification (review #6): a corrupted
+  // buffer must not reach the classifier, which could score it confidently.
+  if (!signalQualityOk(samples, length)) {
+    result.signalOk = false;
+    Serial.println("[ECG] Signal quality gate rejected buffer");
+    return result;
+  }
 
   int ws = (length < MODEL_INPUT_SAMPLES) ? length : MODEL_INPUT_SAMPLES;
   WindowResult wr = runSlidingInference(samples, length, ws, INFERENCE_STRIDE);
 
   if (wr.totalWindows == 0) return result;
 
-  // Majority vote across windows
+  // Confidence-weighted decision across windows
   int bestClass = 0;
-  int bestVotes = 0;
-  int totalVotes = 0;
-  for (int i = 0; i < 6; i++) {
-    totalVotes += wr.classVotes[i];
-    if (wr.classVotes[i] > bestVotes) {
-      bestVotes = wr.classVotes[i];
+  float bestScore = -1.0f;
+  float total = 0.0f;
+  int numClasses = 0;
+  for (int i = 0; i < 8; i++) {
+    total += wr.classScores[i];
+    if (wr.classScores[i] > bestScore) {
+      bestScore = wr.classScores[i];
       bestClass = i;
     }
+    if (wr.classScores[i] > 0.0f) numClasses = i + 1;
   }
+  if (total <= 0.0f) return result;
 
   result.classId = bestClass;
-  result.confidence = (float)bestVotes / (float)wr.totalWindows;
+  result.confidence = bestScore / total;  // mean calibrated probability
+  for (int i = 0; i < 8; i++) result.probs[i] = wr.classScores[i] / total;
   result.valid = true;
 
-  Serial.printf("[ECG] Sliding inference: %d windows, majority=class %d (%.1f%%)\n",
+  Serial.printf("[ECG] Sliding inference: %d windows, weighted=class %d (%.1f%%)\n",
                 wr.totalWindows, bestClass, result.confidence * 100.0f);
 
   return result;

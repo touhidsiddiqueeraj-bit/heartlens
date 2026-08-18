@@ -1,0 +1,68 @@
+\documentclass[10pt, conference, letterpaper]{IEEEtran}
+
+\IEEEoverridecommandlockouts
+\markboth{Hussain Touhid Siddiquee}{Comparative Evaluation of Deep Learning Models on Edge Devices for Detection of Abnormal Heart Rhythms}
+\title{Comparative Evaluation of Deep Learning Models on Edge Devices for Detection of Abnormal Heart Rhythms}
+\author{Hussain Touhid Siddiquee}
+
+\usepackage{cite}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Low-cost wearable ECG screening devices promise early detection of abnormal heart rhythms, but deploying deep learning on sub-\$15 microcontrollers requires balancing accuracy, model size, and inference latency. We present a comparative evaluation of four deep learning architectures -- 1D-CNN, LSTM, GRU, and TCN -- for three-class beat-level classification (Normal, atrial premature beat, premature ventricular contraction) on MIT-BIH, with a separate rhythm-level atrial fibrillation detector trained on the MIT-BIH Atrial Fibrillation Database. Six experiments assess patient-independent generalization, noise robustness (SNR 0--40 dB), external validation on SVDB, int8 quantization impact, on-device latency on an ESP32-S3, and hardware-domain robustness measured through a DAC-to-ADC replay loop. We report grouped cross-validation F1 scores, a model-size versus accuracy trade-off table, and Delta-F1, the accuracy lost when the same models run on real silicon.
+\end{abstract}
+
+\section{Introduction}
+
+Abnormal heart rhythms such as atrial premature beats (APB), premature ventricular contractions (PVC), and atrial fibrillation (AF) are common, often asymptomatic, and frequently go undetected until a serious event occurs. Low-cost single-lead ECG screening devices could make routine rhythm monitoring accessible in low-resource settings, but the economics of hardware gate the practicality: an ESP32-class microcontroller costs a few dollars, yet executes deep learning models with limited memory, limited compute, and quantized arithmetic.\textbackslash{}n\textbackslash{}nRecent work demonstrates ECG classification with convolutional networks on embedded targets, but most studies report only offline accuracy, leaving three gaps: (i) architectures are rarely compared on the same data pipeline, (ii) quantization and on-device latency are often estimated rather than measured, and (iii) the hardware acquisition path itself is not validated against the digital benchmark. This paper addresses all three. We train four architectures (1D-CNN, LSTM, GRU, TCN) on identical patient-level splits of the MIT-BIH Arrhythmia Database and evaluate them in six experiments: (1) patient-independent grouped cross-validation, (2) noise robustness at SNR 0--40 dB across three front-ends, (3) external generalization to MIT-BIH SVDB, (4) FP32-to-int8 quantization impact, (5) measured on-device latency on an ESP32-S3, and (6) hardware-domain robustness measured via a DAC-to-ADC replay loop, reported as Delta-F1.
+
+
+\section{Related Work}
+
+Beat-level ECG classification on MIT-BIH is a mature problem; convolutional and recurrent models report high per-class F1 for Normal and PVC classes, with atrial beats typically the most difficult minority class \cite{mitdb,annaram}. For deployment, TFLite Micro enables int8 inference on microcontrollers \cite{davidson2021tflm}, and prior ESP32 ECG studies demonstrate feasibility of a single CNN \cite{esp32ecg}. Rhythm-level AF detection is conventionally addressed on longer windows with dedicated AF databases \cite{moody1983new,afdb}. What is less established is a controlled comparison of architectures on one pipeline, with hardware-measured latency and a hardware-domain shift metric. Our contribution is that comparison plus Delta-F1, an explicit measurement of digital-to-hardware accuracy loss.
+
+
+\section{Methods}
+
+\subsection{Data and labels}
+
+Beat-level training uses the MIT-BIH Arrhythmia Database (48 recordings, 360 Hz, MLII lead). We extract 1-second windows centered on R-peaks with three classes: Normal (N), Atrial Premature Beat (A), and Premature Ventricular Contraction (V). Beat-level and rhythm-level tasks are kept separate: AF is not representable in a 1-second beat window, so a second model is trained on the MIT-BIH Atrial Fibrillation Database (afdb), where rhythm annotations (AFIB/AFL versus N) label 10-second windows resampled from 250 Hz to 360 Hz. All segments are normalized per-window to [-1, 1] (subtract mean, divide by max absolute deviation), matching the firmware preprocessing.
+
+
+\subsection{Signal quality gate}
+
+A classifier can emit high-confidence predictions on corrupted input, so the firmware applies a heuristic signal-quality gate before inference: a 10-second buffer is rejected if it is near-flat (range less than 8 ADC counts), more than 5\textbackslash{}\% saturated at the range extremes, or dominated by high-frequency energy (differential-to-signal energy ratio above a threshold). Rejected buffers produce the ``signal unclear'' message and never reach the network.
+
+
+\subsection{Models}
+
+Four architectures share one head (global pooling, dense 64, dropout 0.5, softmax) and one training schedule (Adam 1e-3, batch 64, early stopping): CNN (three Conv1D blocks, 32/64/128 filters, kernel 5), LSTM and GRU (one Conv1D block followed by 64 recurrent units), and TCN (two dilated causal blocks with residuals). A Conv1D autoencoder denoiser (16/8 filters, kernel 15) is trained on clean-to-noisy reconstruction at seven SNR levels. All models are exported to int8 TFLite with a 200-sample representative dataset. Temperature scaling is fit on the validation set and applied at inference so that confidence thresholds are calibrated probabilities.
+
+
+\subsection{Hardware and deployment}
+
+The target device is an ESP32-S3 (N16R8: 16 MB flash, 8 MB PSRAM). ADC sampling uses the DMA continuous-mode driver at 36 kHz, decimated to the nominal 360 Hz. A 10-second buffer feeds 1-second windows through the denoiser and classifier in a sliding fashion (50\textbackslash{}\% overlap), with confidence-weighted voting: each window contributes its full softmax vector, and the winning class is the largest summed probability. Latency per stage is measured on silicon via a benchmark firmware mode. For the hardware-domain experiment, a replay mode plays ECG windows from the on-chip 8-bit DAC into the ADC through a jumper wire, exercising quantization, ADC, DMA, and firmware inference without an analog front end.
+
+
+
+\section{Experiments and Results}
+
+Experiment 1 (patient-independent classification) uses GroupKFold with five folds repeated over three seeds at the record level. Experiment 2 corrupts the held-out test set at SNR 0, 5, 10, 15, 20, 30, 40 dB and compares three front-ends: raw signal, 0.5--45 Hz Butterworth filter, and the learned autoencoder. Experiment 3 trains on MIT-BIH and evaluates without retraining on SVDB (128 Hz, resampled), whose N/A/V beat annotations match our classes. Experiment 4 compares FP32 versus int8 per-class F1. Experiment 5 measures per-window latency on the ESP32-S3 with the benchmark firmware mode. Experiment 6 replays test segments through the DAC-to-ADC loop and reports Delta-F1 = F1\_digital - F1\_hardware.\textbackslash{}n\textbackslash{}n\textbackslash{}textbf\{Placeholder results.\} Numbers in the tables are pending the training runs (see \textbackslash{}texttt\{heart-lens-training/results/\} after the Colab execution described in the repository README). The protocol and scripts are fully executable; this draft fixes the experimental design, metrics, and reporting format.
+
+
+\section{Discussion and Limitations}
+
+Single-lead acquisition limits diagnostic scope: ST-segment analysis, axis determination, and complex arrhythmia discrimination require 12-lead recordings. The APB class is a beat-level surrogate and is deliberately not presented as atrial fibrillation. The ESP32-S3 internal ADC has no published linearity specification; the replay experiment quantifies the resulting domain shift rather than assuming it away. Real acquisition through electrodes and an AD8232 front end, and battery-lifetime measurement, are future work requiring hardware and ethics approval.
+
+
+\section{Conclusion}
+
+We presented an executable six-experiment framework comparing CNN, LSTM, GRU, and TCN classifiers for edge ECG screening, with grouped cross-validation, noise robustness, external validation, quantization, measured latency, and a hardware-domain Delta-F1 metric. The design separates beat-level from rhythm-level tasks, gates signal quality before classification, calibrates confidence, and measures, rather than assumes, the gap between digital and on-device performance.
+
+
+
+\bibliographystyle{IEEEtran}\bibliography{references}
+
+\end{document}

@@ -4,13 +4,15 @@
 #include <cstdint>
 
 struct InferenceResult {
-  int classId;       // 0-5
-  float confidence;  // 0.0-1.0 — properly dequantized
+  int classId;       // 0..NUM_CLASSES-1
+  float confidence;  // 0.0-1.0 — mean calibrated probability of classId
+  float probs[8];    // normalized mean class distribution (weighted vote)
   bool valid;        // false if inference failed
+  bool signalOk;     // false if signal-quality gate rejected the buffer
 };
 
 struct WindowResult {
-  int classVotes[6];  // accumulated votes across sliding windows
+  float classScores[8];  // summed softmax probabilities (confidence-weighted)
   int totalWindows;
 };
 
@@ -22,6 +24,12 @@ public:
   WindowResult runSlidingInference(int16_t* samples, int length,
                                     int windowSize, int stride);
   void printModelInfo() const;
+
+  // Benchmark counters (BENCHMARK_MODE)
+  unsigned long benchDenoiseUs;
+  unsigned long benchClassifyUs;
+  unsigned long benchTotalUs;
+  unsigned long benchWindows;
 
 private:
   bool _initialized;

@@ -13,3 +13,4 @@ heart-lens-training/models/*.tflite
 heart-lens-training/models/*.keras
 *.swp
 *.swo
+HeartLens_Firmware/.pio/

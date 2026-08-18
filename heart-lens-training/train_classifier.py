@@ -14,11 +14,11 @@ from data_loader import WINDOW_SAMPLES, NUM_CLASSES, load_record, SYM_TO_CLASS
 OUT_DIR = os.path.join(os.path.dirname(__file__), "models")
 os.makedirs(OUT_DIR, exist_ok=True)
 
-CLASS_NAMES = ["Normal", "AFib", "PVC", "Tachycardia", "Bradycardia", "ST Abnormality"]
+CLASS_NAMES = ["Normal", "APB", "PVC"]
 
 
 def build_classifier(input_shape=(WINDOW_SAMPLES, 1), num_classes=NUM_CLASSES):
-    """3 Conv1D blocks (32 / 64 / 128), kernel 5, BN, MaxPool → GAP → Dense(64) → Dropout(0.5) → Dense(6, Softmax)."""
+    """3 Conv1D blocks (32 / 64 / 128), kernel 5, BN, MaxPool → GAP → Dense(64) → Dropout(0.5) → Dense(3, Softmax)."""
     inputs = tf.keras.layers.Input(shape=input_shape, name="classifier_input")
     x = tf.keras.layers.Conv1D(32, 5, padding="same", activation="relu", name="conv1")(inputs)
     x = tf.keras.layers.BatchNormalization(name="bn1")(x)

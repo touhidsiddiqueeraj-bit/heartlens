@@ -3,30 +3,36 @@
 
 static const char* CLASS_NAMES[] = {
   "Normal Sinus Rhythm",
-  "Atrial Fibrillation",
-  "Premature Ventricular Contraction",
-  "Tachycardia",
-  "Bradycardia",
-  "ST Abnormality"
+  "Atrial Premature Beat (APB)",
+  "Premature Ventricular Contraction"
 };
 
 static const Urgency CLASS_URGENCY[] = {
   Urgency::None,    // Normal
-  Urgency::High,    // AFib
-  Urgency::Medium,  // PVC
-  Urgency::Medium,  // Tachy
-  Urgency::Medium,  // Brady
-  Urgency::High     // ST Abn
+  Urgency::Medium,  // APB
+  Urgency::Medium   // PVC
 };
 
 static const char* OUTPUT_MESSAGES[] = {
   "Heart rhythm looks normal.",
-  "Irregular rhythm detected. Please seek medical attention.",
   "Unusual rhythm detected. Please see a doctor soon.",
-  "Unusual rhythm detected. Please see a doctor soon.",
-  "Unusual rhythm detected. Please see a doctor soon.",
-  "Irregular rhythm detected. Please seek medical attention."
+  "Unusual rhythm detected. Please see a doctor soon."
 };
+
+// Temperature-scaled softmax on probabilities (review #12).
+// q_i = p_i^(1/T) / sum_j p_j^(1/T); T=1.0 is identity.
+static void applyTemperature(float* probs, int n, float temperature) {
+  if (temperature <= 0.0f) temperature = 1.0f;
+  float inv = 1.0f / temperature;
+  float sum = 0.0f;
+  for (int i = 0; i < n; i++) {
+    if (probs[i] > 0.0f) probs[i] = powf(probs[i], inv);
+    sum += probs[i];
+  }
+  if (sum > 0.0f) {
+    for (int i = 0; i < n; i++) probs[i] /= sum;
+  }
+}
 
 Interpreter::Interpreter() : _lastNormalTime(0) {}
 
@@ -39,6 +45,12 @@ OutputMessage Interpreter::interpret(const InferenceResult& result) {
     return out;
   }
 
+  if (!result.signalOk) {
+    out.urgency = Urgency::Error;
+    out.message = "Signal unclear. Please reattach electrodes and try again.";
+    return out;
+  }
+
   if (result.confidence < CONFIDENCE_LOW) {
     out.urgency = Urgency::Error;
     out.message = "Signal unclear. Please reattach electrodes and try again.";
@@ -46,14 +58,25 @@ OutputMessage Interpreter::interpret(const InferenceResult& result) {
   }
 
   int cls = result.classId;
-  if (cls < 0 || cls > 5) cls = 0;
+  if (cls < 0 || cls >= NUM_CLASSES) cls = 0;
+
+  // Calibrate the full class distribution via temperature scaling (review #12)
+  float probs[NUM_CLASSES];
+  float sum = 0.0f;
+  for (int i = 0; i < NUM_CLASSES; i++) {
+    probs[i] = (result.probs[i] > 0.0f) ? result.probs[i] : 0.0f;
+    sum += probs[i];
+  }
+  if (sum <= 0.0f) probs[cls] = 1.0f;  // degenerate: fall back to argmax
+  applyTemperature(probs, NUM_CLASSES, CALIB_TEMPERATURE);
+  float confCal = probs[cls];
 
   // Low confidence (between LOW and HIGH) — still show result but indicate uncertainty
-  if (result.confidence < CONFIDENCE_HIGH) {
+  if (confCal < CONFIDENCE_HIGH) {
     out.urgency = CLASS_URGENCY[cls];
     out.message = String("Possible: ") + OUTPUT_MESSAGES[cls];
     Serial.printf("[Interp] Low conf: class=%s (%d)  confidence=%.3f  urgency=%d\n",
-                  CLASS_NAMES[cls], cls, result.confidence, (int)out.urgency);
+                  CLASS_NAMES[cls], cls, confCal, (int)out.urgency);
     return out;
   }
 
@@ -76,7 +99,7 @@ OutputMessage Interpreter::interpret(const InferenceResult& result) {
   out.message = OUTPUT_MESSAGES[cls];
 
   Serial.printf("[Interp] Class=%s (%d)  Confidence=%.3f  Urgency=%d\n",
-                CLASS_NAMES[cls], cls, result.confidence, (int)out.urgency);
+                CLASS_NAMES[cls], cls, confCal, (int)out.urgency);
 
   return out;
 }

@@ -17,9 +17,11 @@ except ImportError:
     raise ImportError("Install wfdb: pip install wfdb")
 
 SAMPLE_RATE = 360
-WINDOW_SEC = 10
+# 1-second beat-level windows. AF rhythm detection (10 s windows) is
+# handled separately via afdb_loader.py — see data_loader docs.
+WINDOW_SEC = 1
 WINDOW_SAMPLES = SAMPLE_RATE * WINDOW_SEC
-NUM_CLASSES = 6
+NUM_CLASSES = 3
 
 # Tracking normalization parameters per segment for firmware deployment.
 # offset = segment mean, scale = max(abs(segment - offset))
@@ -40,14 +42,13 @@ RECORDS_LIST = [
 PATIENT_RECORD = {str(r): r for r in RECORDS_LIST}
 
 # Annotation symbol -> class mapping.
-# Only cleanly identifiable classes are mapped. Pathological/proxy labels removed.
+# Only cleanly identifiable classes are mapped. Class 1 is honestly
+# labeled as APB (atrial premature beat, symbol 'A') — it is NOT atrial
+# fibrillation. True rhythm-level AF training data comes from the
+# MIT-BIH Atrial Fibrillation Database via afdb_loader.py.
 SYM_TO_CLASS = {
     'N': 0,  # Normal beat
-    # WARNING: 'A' (atrial premature beat) is used as a PROXY for AFib (class 1).
-    # Atrial premature beats are NOT the same as atrial fibrillation.
-    # This mapping is a stand-in only. Replace with properly annotated AFib
-    # data (e.g. from MIT-BIH AF Database or CUDB) for production use.
-    'A': 1,  # Atrial premature beat -> proxy for AFib
+    'A': 1,  # Atrial premature beat (APB)
     'V': 2,  # Premature ventricular contraction
 }
 

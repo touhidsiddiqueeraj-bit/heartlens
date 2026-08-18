@@ -75,7 +75,8 @@ sys.path.insert(0, str(TRAIN_DIR))
 
 from data_loader import (load_all_segments, load_record_segments,
                           split_dataset, split_by_patient,
-                          WINDOW_SAMPLES, NUM_CLASSES, RECORDS_LIST)
+                          WINDOW_SAMPLES, WINDOW_SEC, NUM_CLASSES,
+                          RECORDS_LIST)
 from noise_pipeline import add_all_noise
 
 # ── Reproducibility ─────────────────────────────────────────────────
@@ -83,12 +84,12 @@ tf.random.set_seed(42)
 np.random.seed(42)
 
 # ── Constants ───────────────────────────────────────────────────────
-CLASS_NAMES = ["Normal", "AFib (proxy)", "PVC",
-               "Tachycardia*", "Bradycardia*", "ST Abnormality*"]
-# * = no training data available — output inactive
+CLASS_NAMES = ["Normal", "APB", "PVC"]
+# Class 1 is atrial premature beat (APB), honestly labeled. True AF
+# rhythm detection uses afdb_loader.py (MIT-BIH Atrial Fibrillation DB).
 NOISE_LEVELS = (0, 5, 10, 15, 20, 30, 40)
 VAL_NOISE_SNR = 15
-SEQ_LEN = WINDOW_SAMPLES  # 3600
+SEQ_LEN = WINDOW_SAMPLES  # 360 (1 s at 360 Hz)
 
 OUT_DIR = Path(__file__).parent / "auto_train_output"
 FIGS_DIR = OUT_DIR / "figures"
@@ -543,7 +544,8 @@ def generate_report(den, clf, args, dataset_stats, start_time):
     pdf.body_text(
         f"Source: MIT-BIH Arrhythmia Database ({len(RECORDS_LIST)} recordings, "
         f"360 Hz, 2 leads, ~30 min each). Only MLII lead is used. "
-        f"Segments are 10-second windows centered on R-peaks."
+        f"Segments are {WINDOW_SEC}-second windows centered on R-peaks. "
+        f"AF rhythm data (afdb) is trained separately via afdb_loader.py."
     )
     pdf.body_text(f"Total segments loaded: {dataset_stats['total']}")
     for c in range(NUM_CLASSES):
@@ -569,7 +571,7 @@ def generate_report(den, clf, args, dataset_stats, start_time):
         pdf.add_page()
         pdf.section_title("3. Denoiser - Conv1D Autoencoder")
         pdf.body_text(
-            "Architecture: Input(3600,1) -> Conv1D(16,15) -> MaxPool1D(2) -> "
+            f"Architecture: Input({SEQ_LEN},1) -> Conv1D(16,15) -> MaxPool1D(2) -> "
             "Conv1D(8,15) -> MaxPool1D(2) -> UpSampling1D(2) -> Conv1D(8,15) -> "
             "UpSampling1D(2) -> Conv1D(1,15). "
             "Why Conv1D over LSTM: 3-5x faster on ESP32 TFLite Micro, "
@@ -595,9 +597,9 @@ def generate_report(den, clf, args, dataset_stats, start_time):
     pdf.add_page()
     pdf.section_title("4. Classifier - 1D-CNN")
     pdf.body_text(
-        "Architecture: Input(3600,1) -> Conv1D(32,5)+BN+MaxPool -> "
+        f"Architecture: Input({SEQ_LEN},1) -> Conv1D(32,5)+BN+MaxPool -> "
         "Conv1D(64,5)+BN+MaxPool -> Conv1D(128,5)+BN+MaxPool -> "
-        "GAP -> Dense(64)+Dropout(0.5) -> Dense(6, Softmax)."
+        f"GAP -> Dense(64)+Dropout(0.5) -> Dense({NUM_CLASSES}, Softmax)."
     )
 
     # Float32 metrics table
@@ -710,24 +712,25 @@ def generate_report(den, clf, args, dataset_stats, start_time):
     pdf.add_page()
     pdf.section_title("7. Notes & Caveats")
     notes = [
-        "Regulatory: HeartLens AI is a preventative screening aid, not "
-        "a medical device. No FDA/CE clearance.",
+        "Regulatory: Research prototype. No FDA/CE clearance. Not "
+        "intended to diagnose, treat, or manage any condition.",
         "Single-lead ECG: Limited diagnostic capability vs 12-lead. "
         "Cannot localise ST-elevation or determine axis.",
-        "AFib proxy: Class 1 uses atrial premature beats (MIT-BIH symbol 'A') "
-        "as a stand-in. Replace with MIT-BIH AF Database for production.",
-        "No training data: Classes 3-5 (Tachycardia, Bradycardia, "
-        "ST Abnormality) have zero training samples after removing "
-        "pathological proxy annotations. These outputs are inactive.",
+        "APB class: Class 1 is atrial premature beat (MIT-BIH symbol 'A'), "
+        "honestly labeled. True AF rhythm detection requires afdb_loader.py "
+        "training on the MIT-BIH Atrial Fibrillation Database.",
         "Patient-level CV recommended: Current split_dataset uses "
         "segment-level split which may leak data between train/test. "
-        "Use split_by_patient() for publication-grade results.",
+        "Use split_by_patient() or group_kfold_eval.py for publication-"
+        "grade results.",
         "ESP32 ADC: Internal ADC has ~6% non-linearity. For clinical-"
-        "grade signal, use external ADC (ADS1292R) or I2S peripheral.",
+        "grade signal, use external ADC (ADS1292R).",
         "Per-buffer normalisation: Firmware applies [-1,1] scaling "
-        "to the full 10 s buffer. Training normalises per 1 s segment. "
+        "to the full 10 s buffer. Training normalises per 1 s window. "
         "Both use the same formula (center ÷ maxDev) but at different "
-            "scopes - acceptable for stationary ECG.",
+        "scopes - acceptable for stationary ECG.",
+        "Latency and battery figures in this report are estimates; "
+        "measure on hardware via BENCHMARK_MODE / REPLAY_MODE.",
         "This report was generated automatically by auto_train.py.",
     ]
     for note in notes:

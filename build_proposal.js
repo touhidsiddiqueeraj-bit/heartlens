@@ -226,13 +226,13 @@ const doc = new Document({
           ["Concept", "Offline-capable ECG screening device with edge AI inference"],
           ["Target Cost", "~$12 USD (full bill of materials per unit)"],
           ["Connectivity", "None required — fully offline operation"],
-          ["Device Class", "Preventative screening aid (non-diagnostic)"],
-          ["MCU Platform", "ESP32 (dual-core, 240 MHz, 520 KB RAM)"],
-          ["AI Models", "LSTM denoiser + 1D-CNN classifier (TFLite Micro, int8)"],
-          ["Detects", "AFib, PVC, Tachycardia, Bradycardia, ST abnormality, Normal"],
+          ["Device Class", "Research prototype (non-diagnostic, no regulatory clearance)"],
+          ["MCU Platform", "ESP32-WROOM-32 / ESP32-S3 N16R8 (240 MHz, TFLite Micro)"],
+          ["AI Models", "Conv1D denoiser + 1D-CNN classifier (TFLite Micro, int8)"],
+          ["Detects", "Normal, APB, PVC (beat-level) + AF/Normal rhythm model (afdb)"],
           ["Build Timeline", "16 weeks (part-time)"],
           ["Open Source", "All hardware, firmware, models, and documentation"],
-          ["Publication Target", "Sensors (MDPI, Q2) / IEEE IoT Journal"],
+          ["Publication Target", "IEEE WIECON-ECE 2026 (conference) / Sensors (MDPI)"],
         ],
         [2800, 6560], "1A1410"
       ),
@@ -249,7 +249,7 @@ const doc = new Document({
           width: { size: 9360, type: WidthType.DXA },
           children: [new Paragraph({
             alignment: AlignmentType.CENTER,
-            children: [new TextRun({ text: '"Every year, millions of people suffer preventable heart attacks not because treatment does not exist, but because warning signs went unnoticed until too late. HeartLens AI is built to close that gap — for anyone, anywhere, at a cost lower than a restaurant meal."', size: 24, font: "Arial", italics: true, color: DARK })]
+            children: [new TextRun({ text: '"Every year, millions of people experience arrhythmias whose early warning signs go unnoticed. HeartLens AI explores whether sub-$15 edge hardware can flag abnormal heart rhythms reliably enough to warrant professional evaluation — for anyone, anywhere, at a cost lower than a restaurant meal."', size: 24, font: "Arial", italics: true, color: DARK })]
           })]
         })] })]
       }),
@@ -265,8 +265,8 @@ const doc = new Document({
       sectionDivider("Motivation: The Problem We Are Solving", "01"),
       space(1),
       h2("Background"),
-      para("Cardiovascular disease is the leading cause of death globally, responsible for approximately 18 million deaths per year. What makes this statistic particularly painful is that a large proportion of serious cardiac events — heart attacks, strokes, sudden cardiac arrest — are preceded by detectable warning signs that appear weeks or months in advance."),
-      para("Conditions like atrial fibrillation (AFib), abnormal heart rhythms (arrhythmias), and ST-segment irregularities show up clearly in an electrocardiogram (ECG). Catching them early means a doctor can intervene with medication, lifestyle changes, or monitoring — before a manageable condition becomes a life-threatening emergency."),
+      para("Cardiovascular disease is the leading cause of death globally, responsible for approximately 18 million deaths per year. Detectable heart-rhythm abnormalities — such as atrial fibrillation and premature contractions — often go unnoticed because they are intermittent and silent."),
+      para("Conditions like atrial fibrillation (AFib) and abnormal heart rhythms (arrhythmias) show up clearly in an electrocardiogram (ECG). An inexpensive, always-available screening device that flags these patterns could encourage earlier professional evaluation, before a manageable condition progresses."),
       space(1),
       calloutBox("Core Problem", "The technology to detect these warning signs has existed for decades. The problem is access. A clinical ECG requires a hospital visit, specialist equipment, and trained staff to interpret results. For billions of people in rural areas, low-income settings, or healthcare-underserved regions, that visit simply does not happen — until something goes wrong.", LIGHT_RED, RED),
       space(1),
@@ -327,19 +327,17 @@ const doc = new Document({
       ),
       space(1),
       h2("Rhythm Classification Categories"),
-      para("The classifier recognizes six rhythm categories, each mapped to a plain-language output and urgency tier:"),
+      para("The beat-level classifier recognizes three categories (Normal, APB, PVC), each mapped to a plain-language output and urgency tier. Rhythm-level atrial fibrillation is a separate model trained on the MIT-BIH AF Database:"),
       space(1),
       makeTable(
         ["Rhythm Category", "Description", "Urgency", "User Message"],
         [
           ["Normal Sinus Rhythm", "Regular rate, normal P-QRS-T morphology", "None", "Heart rhythm looks normal."],
-          ["Atrial Fibrillation (AFib)", "Irregular rhythm, absent P waves, variable R-R intervals", "High", "Irregular rhythm detected. Please seek medical attention."],
+          ["Atrial Premature Beat (APB)", "Early P wave with abnormal morphology", "Medium", "Unusual rhythm detected. Please see a doctor soon."],
           ["Premature Ventricular Contraction", "Early wide QRS complex, compensatory pause", "Medium", "Unusual rhythm detected. Please see a doctor soon."],
-          ["Tachycardia", "Heart rate > 100 bpm with consistent morphology", "Medium", "Unusual rhythm detected. Please see a doctor soon."],
-          ["Bradycardia", "Heart rate < 50 bpm with consistent morphology", "Medium", "Unusual rhythm detected. Please see a doctor soon."],
-          ["ST Abnormality", "Elevated or depressed ST segment; ischemia marker", "High", "Irregular rhythm detected. Please seek medical attention."],
+          ["Atrial Fibrillation (rhythm model)", "Irregular rhythm, absent P waves (afdb, 10 s windows)", "High", "Irregular rhythm detected. Please seek medical attention."],
         ],
-        [2200, 2800, 1200, 3160]
+        [2600, 3000, 1200, 3160]
       ),
       space(1),
       calloutBox("Plain-Language Output Design", "The interpreter never shows raw ECG data, confidence percentages, or medical terminology to the end user. The four possible outputs are: (1) Heart rhythm looks normal. (2) Unusual rhythm detected. Please see a doctor soon. (3) Irregular rhythm detected. Please seek medical attention. (4) Signal unclear. Please reattach electrodes and try again.", LIGHT_GOLD, GOLD),
@@ -578,7 +576,7 @@ const doc = new Document({
         [3000, 1400, 3000, 1960]
       ),
       space(1),
-      calloutBox("Regulatory Scope — Explicitly Stated in the Paper", "HeartLens AI is a preventative screening aid, not a medical device. It is not intended to diagnose, treat, or manage any condition. Its sole function is to flag rhythm patterns that may warrant professional evaluation. All performance claims will be scoped accordingly. This framing is not a limitation — it is the correct and honest characterization of what the device does, and reviewers in this space respond well to authors who demonstrate they understand the regulatory distinction.", LIGHT_TEAL, TEAL),
+      calloutBox("Regulatory Scope — Explicitly Stated in the Paper", "HeartLens AI is a research prototype. It has not received FDA, CE, or any regulatory clearance, and this document makes no regulatory classification claim. It is not intended to diagnose, treat, or manage any condition; its function is to flag rhythm patterns that may warrant professional evaluation. All performance claims will be scoped accordingly.", LIGHT_TEAL, TEAL),
       space(2),
       pageBreak(),
 

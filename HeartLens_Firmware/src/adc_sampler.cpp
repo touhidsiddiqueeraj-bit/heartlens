@@ -1,5 +1,6 @@
 #include "adc_sampler.h"
 #include "Config.h"
+
 #include <Arduino.h>
 #include <driver/adc.h>
 #include <esp_adc_cal.h>
@@ -24,9 +25,11 @@ bool AdcSampler::begin(int pin, int sampleRate, int windowSamples) {
   _mutex = xSemaphoreCreateMutex();
   if (!_mutex) return false;
 
-#if USE_I2S_ADC
+#if TARGET_IS_S3
+  // S3: ADC1 channels are GPIO1..10 (GPIO4 = ADC1_CH4); the channel
+  // number equals the GPIO number for the ADC1 range.
   adc1_config_width(ADC_WIDTH_BIT_12);
-  adc1_config_channel_atten(I2S_ADC_CHANNEL, ADC_CALIB_ATTEN);
+  adc1_config_channel_atten((adc1_channel_t)_pin, ADC_CALIB_ATTEN);
   esp_adc_cal_characterize(ADC_UNIT_1, ADC_CALIB_ATTEN,
                             ADC_WIDTH_BIT_12, ADC_CALIB_DEFAULT_VREF,
                             &_adcChars);
@@ -34,7 +37,7 @@ bool AdcSampler::begin(int pin, int sampleRate, int windowSamples) {
   pinMode(_pin, INPUT);
   analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_11db,
+  esp_adc_cal_characterize(ADC_UNIT_1, (adc_atten_t)ADC_CALIB_ATTEN,
                             ADC_WIDTH_BIT_12, ADC_CALIB_DEFAULT_VREF,
                             &_adcChars);
 #endif
@@ -46,7 +49,7 @@ void AdcSampler::startSampling() {
   if (_running) return;
   _running = true;
   xTaskCreatePinnedToCore(
-    samplingTask, "adc_sampler", 3072, this, 2, &_taskHandle, 0
+    samplingTask, "adc_sampler", 4096, this, 2, &_taskHandle, 0
   );
 }
 
@@ -86,8 +89,8 @@ void AdcSampler::reset() {
 void AdcSampler::adcReadBlock(int16_t* out, int count) {
   uint32_t raw;
   for (int i = 0; i < count; i++) {
-#if USE_I2S_ADC
-    raw = adc1_get_raw(I2S_ADC_CHANNEL);
+#if TARGET_IS_S3
+    raw = adc1_get_raw((adc1_channel_t)_pin);
 #else
     raw = analogRead(_pin);
 #endif
@@ -96,22 +99,35 @@ void AdcSampler::adcReadBlock(int16_t* out, int count) {
   }
 }
 
+int AdcSampler::collectReplayWindow(int16_t* out, int outSamples) {
+  // Sample at the playback rate (sampleRate * REPLAY_RATE_MULT) with
+  // 4x oversampling averaging; 1:1 sample mapping with the DAC output.
+  const int ovs = 4;
+  for (int i = 0; i < outSamples; i++) {
+    int16_t rawBuf[4];
+    adcReadBlock(rawBuf, ovs);
+    int32_t sum = 0;
+    for (int j = 0; j < ovs; j++) sum += rawBuf[j];
+    out[i] = (int16_t)(sum / ovs);
+  }
+  return outSamples;
+}
+
 void AdcSampler::samplingTask(void* param) {
   auto* self = static_cast<AdcSampler*>(param);
 
-  // Use I2S ADC for precise periodic sampling
-  const int samplesPerTick = 4;  // oversample ×4, average
+  const int samplesPerTick = ADC_OVERSAMPLES;
   const TickType_t interval = pdMS_TO_TICKS(1000 / self->_sampleRate);
 
   while (self->_running) {
     TickType_t lastWake = xTaskGetTickCount();
 
     if (!self->_bufferFull) {
-      int16_t rawBuf[samplesPerTick];
-      int32_t sum = 0;
+      int16_t rawBuf[8];
       self->adcReadBlock(rawBuf, samplesPerTick);
+      int32_t sum = 0;
       for (int i = 0; i < samplesPerTick; i++) sum += rawBuf[i];
-      int16_t sample = sum / samplesPerTick;
+      int16_t sample = (int16_t)(sum / samplesPerTick);
 
       if (self->_mutex) xSemaphoreTake(self->_mutex, portMAX_DELAY);
       if (!self->_bufferFull) {
