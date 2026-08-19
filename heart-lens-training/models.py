@@ -55,6 +55,7 @@ def build_classifier(model_type="cnn", input_shape=(WINDOW_SAMPLES, 1),
 
     elif model_type == "tcn":
         # Two dilated causal blocks with residual connections
+        x = inputs
         for i, (dil, filt) in enumerate([(1, 32), (2, 64)]):
             skip = x
             x = tf.keras.layers.Conv1D(filt, 5, padding="causal",
