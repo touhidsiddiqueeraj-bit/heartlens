@@ -1,0 +1,10 @@
+{
+  "svdb_f1_per_class": [
+    0.6626830969541967,
+    0.0,
+    0.462132175590931
+  ],
+  "svdb_macro_f1": 0.37493842418170925,
+  "afdb_af_distribution": null,
+  "afdb_normal_distribution": null
+}

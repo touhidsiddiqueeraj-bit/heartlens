@@ -1,0 +1,2 @@
+model,quant_type,size_kb,macro_f1_float32,macro_f1_int8,quant_delta,f1_normal,f1_apb,f1_pvc,latency_ms
+gru,float32,107.5,0.6325,,,0.8342,0.3265,0.7368,

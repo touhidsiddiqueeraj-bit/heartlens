@@ -18,3 +18,11 @@ HeartLens_Firmware/.pio/
 train_logs/
 .venv/
 heart-lens-training/svdb/
+auto_train_output/
+heart-lens-training/results/*.png
+heartlens_results.zip
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.out
+paper/*.log

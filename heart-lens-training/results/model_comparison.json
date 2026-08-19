@@ -1,0 +1,50 @@
+[
+  {
+    "model": "cnn",
+    "size_kb": 77.9,
+    "macro_f1_float32": 0.5883,
+    "macro_f1_int8": 0.6773,
+    "quant_delta": -0.089,
+    "f1_normal": 0.6512,
+    "f1_apb": 0.1833,
+    "f1_pvc": 0.9304,
+    "latency_ms": null,
+    "quant_type": "full-int8"
+  },
+  {
+    "model": "lstm",
+    "quant_type": "float32",
+    "size_kb": 130.3,
+    "macro_f1_float32": 0.6992,
+    "macro_f1_int8": null,
+    "quant_delta": null,
+    "f1_normal": 0.8953,
+    "f1_apb": 0.2963,
+    "f1_pvc": 0.9059,
+    "latency_ms": null
+  },
+  {
+    "model": "gru",
+    "quant_type": "float32",
+    "size_kb": 107.5,
+    "macro_f1_float32": 0.6325,
+    "macro_f1_int8": null,
+    "quant_delta": null,
+    "f1_normal": 0.8342,
+    "f1_apb": 0.3265,
+    "f1_pvc": 0.7368,
+    "latency_ms": null
+  },
+  {
+    "model": "tcn",
+    "quant_type": "full-int8",
+    "size_kb": 70.1,
+    "macro_f1_float32": 0.8093,
+    "macro_f1_int8": 0.7125,
+    "quant_delta": 0.0967,
+    "f1_normal": 0.9585,
+    "f1_apb": 0.5,
+    "f1_pvc": 0.9694,
+    "latency_ms": null
+  }
+]

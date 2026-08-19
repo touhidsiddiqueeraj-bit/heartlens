@@ -1,0 +1,13 @@
+[
+  {
+    "model": "cnn",
+    "size_kb": 77.9,
+    "macro_f1_float32": 0.5883,
+    "macro_f1_int8": 0.6773,
+    "quant_delta": -0.089,
+    "f1_normal": 0.6512,
+    "f1_apb": 0.1833,
+    "f1_pvc": 0.9304,
+    "latency_ms": null
+  }
+]

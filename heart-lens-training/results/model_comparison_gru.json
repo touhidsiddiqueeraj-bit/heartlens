@@ -1,0 +1,14 @@
+[
+  {
+    "model": "gru",
+    "quant_type": "float32",
+    "size_kb": 107.5,
+    "macro_f1_float32": 0.6325,
+    "macro_f1_int8": null,
+    "quant_delta": null,
+    "f1_normal": 0.8342,
+    "f1_apb": 0.3265,
+    "f1_pvc": 0.7368,
+    "latency_ms": null
+  }
+]

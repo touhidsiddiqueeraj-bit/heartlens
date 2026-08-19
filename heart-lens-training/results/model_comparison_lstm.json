@@ -1,0 +1,14 @@
+[
+  {
+    "model": "lstm",
+    "quant_type": "float32",
+    "size_kb": 130.3,
+    "macro_f1_float32": 0.6992,
+    "macro_f1_int8": null,
+    "quant_delta": null,
+    "f1_normal": 0.8953,
+    "f1_apb": 0.2963,
+    "f1_pvc": 0.9059,
+    "latency_ms": null
+  }
+]

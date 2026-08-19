@@ -21,9 +21,9 @@
   <text x="390" y="252" text-anchor="middle"><tspan x="390" dy="12">R-peak 1-s windows, classes N/A/V</tspan><tspan x="390" dy="36">per-window normalization to [-1, 1]</tspan></text>
   <text x="390" y="382" text-anchor="middle"><tspan x="390" dy="12">Patient-level split</tspan><tspan x="390" dy="36">train / validation / test (record-aware)</tspan></text>
   <text x="390" y="512" text-anchor="middle"><tspan x="390" dy="12">Architectures: CNN . LSTM . GRU . TCN</tspan><tspan x="390" dy="36">+ Conv1D autoencoder denoiser</tspan></text>
-  <text x="390" y="642" text-anchor="middle"><tspan x="390" dy="12">Quantization: FP32 to int8 TFLite</tspan><tspan x="390" dy="36">CNN/TCN full-int8; LSTM/GRU float32</tspan></text>
-  <text x="390" y="772" text-anchor="middle"><tspan x="390" dy="12">Experiments: grouped CV . noise 0-40 dB</tspan><tspan x="390" dy="36">SVDB external . temperature calibration</tspan></text>
-  <text x="390" y="890" text-anchor="middle"><tspan x="390" dy="6">On-device: ESP32-S3 int8 inference,</tspan><tspan x="390" dy="34">memory footprint and latency</tspan></text>
+  <text x="390" y="640" text-anchor="middle"><tspan x="390" dy="8">E4 Quantization + calibration</tspan><tspan x="390" dy="30">FP32 to int8 TFLite (CNN/TCN full-int8,</tspan><tspan x="390" dy="30">LSTM/GRU float32); temperature T</tspan></text>
+  <text x="390" y="770" text-anchor="middle"><tspan x="390" dy="8">Experiments</tspan><tspan x="390" dy="30">E1 grouped CV . E2 noise 0-40 dB</tspan><tspan x="390" dy="30">E3 external SVDB validation</tspan></text>
+  <text x="390" y="888" text-anchor="middle"><tspan x="390" dy="8">E5 On-device verification</tspan><tspan x="390" dy="34">ESP32-S3 int8, memory and latency</tspan></text>
 
   <line x1="390" y1="184" x2="390" y2="196" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrM)"/>
   <line x1="390" y1="314" x2="390" y2="326" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrM)"/>

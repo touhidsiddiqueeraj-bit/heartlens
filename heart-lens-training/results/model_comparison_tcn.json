@@ -1,0 +1,14 @@
+[
+  {
+    "model": "tcn",
+    "quant_type": "full-int8",
+    "size_kb": 70.1,
+    "macro_f1_float32": 0.8093,
+    "macro_f1_int8": 0.7125,
+    "quant_delta": 0.0967,
+    "f1_normal": 0.9585,
+    "f1_apb": 0.5,
+    "f1_pvc": 0.9694,
+    "latency_ms": null
+  }
+]
