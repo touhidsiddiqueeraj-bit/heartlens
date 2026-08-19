@@ -26,3 +26,4 @@ paper/*.bbl
 paper/*.blg
 paper/*.out
 paper/*.log
+heart-lens-training/results/*.keras
