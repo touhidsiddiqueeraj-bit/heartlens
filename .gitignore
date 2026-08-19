@@ -14,3 +14,7 @@ heart-lens-training/models/*.keras
 *.swp
 *.swo
 HeartLens_Firmware/.pio/
+.markers/
+train_logs/
+.venv/
+heart-lens-training/svdb/
