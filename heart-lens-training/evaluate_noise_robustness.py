@@ -31,14 +31,19 @@ CLASS_NAMES = ["Normal", "APB", "PVC"]
 
 
 def build_denoiser():
+    # Decoder upsamples with Conv1DTranspose (=> TRANSPOSE_CONV in TFLite,
+    # supported by TFLM) instead of UpSampling1D, which Keras 3 quantizes to
+    # a TILE op that TFLM builds for ESP32 don't include.
     inputs = tf.keras.layers.Input(shape=(WINDOW_SAMPLES, 1), name="denoiser_input")
     x = tf.keras.layers.Conv1D(16, 15, padding="same", activation="relu")(inputs)
     x = tf.keras.layers.MaxPool1D(2)(x)
     x = tf.keras.layers.Conv1D(8, 15, padding="same", activation="relu")(x)
     x = tf.keras.layers.MaxPool1D(2)(x)
-    x = tf.keras.layers.UpSampling1D(2)(x)
+    x = tf.keras.layers.Conv1DTranspose(8, 15, strides=2, padding="same",
+                                        activation="relu")(x)
     x = tf.keras.layers.Conv1D(8, 15, padding="same", activation="relu")(x)
-    x = tf.keras.layers.UpSampling1D(2)(x)
+    x = tf.keras.layers.Conv1DTranspose(8, 15, strides=2, padding="same",
+                                        activation="relu")(x)
     x = tf.keras.layers.Conv1D(1, 15, padding="same")(x)
     model = tf.keras.Model(inputs, x, name="denoiser")
     model.compile(optimizer="adam", loss="mse")
