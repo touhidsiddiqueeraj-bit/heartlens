@@ -102,6 +102,8 @@ def main():
     ap.add_argument("--afdb-dir", default="./afdb")
     ap.add_argument("--max-per-class", type=int, default=3000)
     ap.add_argument("--epochs", type=int, default=40)
+    ap.add_argument("--skip-afdb", action="store_true",
+                    help="skip the AFDB rhythm distribution check (saves ~1.5 GB download)")
     args = ap.parse_args()
 
     # ── Train on MIT-BIH with patient-level split ──────────────────
@@ -128,24 +130,28 @@ def main():
     print(f"Per-class F1 on SVDB: {np.round(f1_svdb, 4)}")
 
     # ── AF rhythm distribution check (interpretation only) ─────────
-    print("\n=== afdb rhythm windows: predicted class distribution ===")
-    X_af, y_af = load_afdb_windows(args.afdb_dir)
-    pred_af = np.argmax(model.predict(X_af, verbose=0), axis=1)
-    for cls, name in enumerate(CLASS_NAMES):
-        frac = np.mean(pred_af[y_af == 1] == cls)
-        print(f"  AF windows predicted as {name:6s}: {frac:.1%}")
-    for cls, name in enumerate(CLASS_NAMES):
-        frac = np.mean(pred_af[y_af == 0] == cls)
-        print(f"  Normal windows predicted as {name:6s}: {frac:.1%}")
+    if args.skip_afdb:
+        print("afdb check skipped (--skip-afdb)")
+        af_af = af_normal = None
+    else:
+        print("\n=== afdb rhythm windows: predicted class distribution ===")
+        X_af, y_af = load_afdb_windows(args.afdb_dir)
+        pred_af = np.argmax(model.predict(X_af, verbose=0), axis=1)
+        af_af = {name: float(np.mean(pred_af[y_af == 1] == cls))
+                 for cls, name in enumerate(CLASS_NAMES)}
+        af_normal = {name: float(np.mean(pred_af[y_af == 0] == cls))
+                     for cls, name in enumerate(CLASS_NAMES)}
+        for cls, name in enumerate(CLASS_NAMES):
+            frac = float(np.mean(pred_af[y_af == 1] == cls))
+            print(f"  AF windows predicted as {name:6s}: {frac:.1%}")
+        for cls, name in enumerate(CLASS_NAMES):
+            frac = float(np.mean(pred_af[y_af == 0] == cls))
+            print(f"  Normal windows predicted as {name:6s}: {frac:.1%}")
 
     out = {"svdb_f1_per_class": f1_svdb.tolist(),
            "svdb_macro_f1": float(np.mean(f1_svdb)),
-           "afdb_af_distribution": {
-               name: float(np.mean(pred_af[y_af == 1] == cls))
-               for cls, name in enumerate(CLASS_NAMES)},
-           "afdb_normal_distribution": {
-               name: float(np.mean(pred_af[y_af == 0] == cls))
-               for cls, name in enumerate(CLASS_NAMES)}}
+           "afdb_af_distribution": af_af,
+           "afdb_normal_distribution": af_normal}
     path = OUT_DIR / "external_validation.json"
     with open(path, "w") as f:
         json.dump(out, f, indent=2)

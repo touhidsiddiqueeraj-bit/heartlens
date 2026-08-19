@@ -71,7 +71,11 @@ def main():
     ap.add_argument("--models-dir", default="./models")
     ap.add_argument("--types", default=",".join(MODEL_TYPES),
                     help="comma-separated architectures to compare")
+    ap.add_argument("--suffix", default="",
+                    help="output suffix (e.g. _cnn) so per-arch runs write "
+                         "model_comparison_cnn.json instead of overwriting")
     args = ap.parse_args()
+    suffix = args.suffix
 
     from train_classifier import load_data_with_record_tracking, record_level_split
     by_class = load_data_with_record_tracking(args.data_dir, args.max_per_class)
@@ -135,12 +139,12 @@ def main():
             "latency_ms": None,  # measured on hardware via BENCHMARK_MODE
         })
 
-    csv_path = OUT_DIR / "model_comparison.csv"
+    csv_path = OUT_DIR / f"model_comparison{suffix}.csv"
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         writer.writerows(rows)
-    with open(OUT_DIR / "model_comparison.json", "w") as f:
+    with open(OUT_DIR / f"model_comparison{suffix}.json", "w") as f:
         json.dump(rows, f, indent=2)
     print(f"\nSaved: {csv_path}")
 
@@ -162,7 +166,7 @@ def main():
     for ax in (a1, a2):
         ax.grid(True, axis="y", alpha=0.3)
     plt.tight_layout()
-    fig_path = OUT_DIR / "model_comparison.png"
+    fig_path = OUT_DIR / f"model_comparison{suffix}.png"
     fig.savefig(fig_path, dpi=150)
     plt.close(fig)
     print(f"Saved: {fig_path}")
