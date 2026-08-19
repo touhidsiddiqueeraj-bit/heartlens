@@ -38,10 +38,19 @@ def main():
         print("no rows to merge — run compare_models.py per arch first")
         return 1
 
+    # Homogenize keys (archs may have been written by different script
+    # versions with extra/missing fields) and fill gaps with None.
+    fields = list(dict.fromkeys(k for r in rows for k in r))
+    for r in rows:
+        for k in fields:
+            r.setdefault(k, None)
+        if r["quant_type"] is None:
+            r["quant_type"] = "full-int8"  # rows before quant_type were all full-int8
+
     with open(OUT_DIR / "model_comparison.json", "w") as f:
         json.dump(rows, f, indent=2)
     with open(OUT_DIR / "model_comparison.csv", "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
         writer.writerows(rows)
 
