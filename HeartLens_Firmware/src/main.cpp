@@ -151,6 +151,7 @@ static void replayLoop() {
 
 // ─── BENCHMARK_MODE: synthetic-window latency measurement ──────────
 #if BENCHMARK_MODE
+static unsigned long g_lastBenchBeat = 0;
 static void benchmarkLoop() {
   feedWatchdog();
   if (Serial.available()) {
@@ -170,16 +171,28 @@ static void benchmarkLoop() {
       g_ecg.benchTotalUs = 0;
       g_ecg.benchWindows = 0;
       unsigned long t0 = micros();
-      InferenceResult res = g_ecg.runInference(synth, SAMPLES_PER_WINDOW);
+      // Benchmark the NN pipeline directly (window denoise -> classify).
+      // Bypasses the signal-quality gate, which is not part of inference
+      // and would reject a synthetic buffer (flat/extreme saturation).
+      WindowResult wr = g_ecg.runSlidingInference(synth, SAMPLES_PER_WINDOW,
+                                                  MODEL_INPUT_SAMPLES, INFERENCE_STRIDE);
       unsigned long tTotal = micros() - t0;
+      int best = 0; float bestS = -1.0f, tot = 0.0f;
+      for (int i = 0; i < 8; i++) {
+        tot += wr.classScores[i];
+        if (wr.classScores[i] > bestS) { bestS = wr.classScores[i]; best = i; }
+      }
       Serial.printf("BENCH total=%lu us  windows=%lu  denoise_avg=%lu us  classify_avg=%lu us  per_window_avg=%lu us\n",
                     tTotal, g_ecg.benchWindows,
                     g_ecg.benchWindows ? g_ecg.benchDenoiseUs / g_ecg.benchWindows : 0,
                     g_ecg.benchWindows ? g_ecg.benchClassifyUs / g_ecg.benchWindows : 0,
                     g_ecg.benchWindows ? g_ecg.benchTotalUs / g_ecg.benchWindows : 0);
-      Serial.printf("  result: class=%d conf=%.3f valid=%d signalOk=%d\n",
-                    res.classId, res.confidence, res.valid, res.signalOk);
+      Serial.printf("  result: class=%d conf=%.3f valid=%d windows=%d\n",
+                    best, (tot > 0.0f) ? bestS / tot : 0.0f, wr.totalWindows > 0, wr.totalWindows);
     }
+  } else if (millis() - g_lastBenchBeat >= 2000) {
+    g_lastBenchBeat = millis();
+    Serial.println("bench-wait");  // heartbeat: proves serial path is alive
   }
   delay(10);
 }
@@ -189,6 +202,7 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   Serial.println("\n=== HeartLens AI v1.2 ===");
+  Serial.println("BOOTP1");
 
   pinMode(PIN_LED, OUTPUT);
   digitalWrite(PIN_LED, LOW);
@@ -347,3 +361,4 @@ void loop() {
 
   delay(10);
 }
+                            

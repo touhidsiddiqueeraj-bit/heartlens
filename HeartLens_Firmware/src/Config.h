@@ -49,7 +49,7 @@
 #define ADC_CALIB_DEFAULT_VREF 1100  // mV — measure actual with esp_adc_cal
 
 // ─── Inference ─────────────────────────────────────────────────────
-#define TENSOR_ARENA_SIZE       (120 * 1024)  // 120 KB shared arena
+#define TENSOR_ARENA_SIZE       (200 * 1024)  // 200 KB shared arena (real int8 models)
 #define MODEL_INPUT_SAMPLES     360   // 1 second at 360 Hz (beat-level)
 #define INFERENCE_STRIDE        180   // 50% overlap sliding window
 #define SLIDING_WINDOWS_PER_BUF (SAMPLES_PER_WINDOW / INFERENCE_STRIDE - 1)
@@ -61,7 +61,7 @@
 #define NORMAL_DEBOUNCE_MS  30000  // don't re-alert within 30s of normal
 // Temperature scaling (fit on validation set by calibrate.py).
 // p_cal(i) = p(i)^(1/T) / sum_j p(j)^(1/T). T=1.0 disables calibration.
-#define CALIB_TEMPERATURE   1.0f
+#define CALIB_TEMPERATURE   0.3501f
 
 // ─── Signal Quality ────────────────────────────────────────────────
 #define SQI_FLAT_FRACTION   0.05f  // >5% samples saturated → poor
@@ -75,7 +75,7 @@
 #define REPLAY_RATE_MULT    10     // playback/ADC speed-up factor
 // BENCHMARK_MODE: prints per-stage micros timing report to serial on
 // demand (send 'r' in the monitor). Exp 5.
-#define BENCHMARK_MODE      0
+#define BENCHMARK_MODE      1
 
 // ─── Battery ───────────────────────────────────────────────────────
 #define BAT_WARN_MV         3400

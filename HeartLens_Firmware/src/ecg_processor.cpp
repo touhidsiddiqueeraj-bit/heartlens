@@ -1,10 +1,11 @@
 #include "ecg_processor.h"
 #include "Config.h"
 #include "debug.h"
-#include "models/denoiser_model.h"
-#include "models/classifier_model.h"
+#include "models/robust_denoiser_int8.h"
+#include "models/robust_classifier_int8.h"
 
 #include <Arduino.h>
+#include <esp_task_wdt.h>
 #include <cstring>
 
 #include <tensorflow/lite/micro/all_ops_resolver.h>
@@ -86,8 +87,8 @@ WindowResult EcgProcessor::runSlidingInference(int16_t* samples, int length,
   tflite::AllOpsResolver resolver;
 
   // Load models once, reuse interpreters
-  const tflite::Model* denoiserModel = tflite::GetModel(denoiser_dummy_tflite);
-  const tflite::Model* classifierModel = tflite::GetModel(classifier_dummy_tflite);
+  const tflite::Model* denoiserModel = tflite::GetModel(robust_denoiser_int8_tflite);
+  const tflite::Model* classifierModel = tflite::GetModel(robust_classifier_int8_tflite);
 
   tflite::MicroInterpreter denoiserInterp(denoiserModel, resolver, arena1, halfArena);
   if (denoiserInterp.AllocateTensors() != kTfLiteOk) {
@@ -123,6 +124,7 @@ WindowResult EcgProcessor::runSlidingInference(int16_t* samples, int length,
   if (maxDev < 1.0f) maxDev = 1.0f;  // prevent division by zero on flat signal
 
   for (int start = 0; start + windowSize <= length; start += stride) {
+    esp_task_wdt_reset();  // long (10 s) buffers: keep the WDT fed per window
     unsigned long t0 = micros();
 
     int8_t* dIn = denoiserInput->data.int8;
@@ -232,10 +234,10 @@ InferenceResult EcgProcessor::runInference(int16_t* samples, int length) {
 }
 
 void EcgProcessor::printModelInfo() const {
-  auto* dm = tflite::GetModel(denoiser_dummy_tflite);
-  auto* cm = tflite::GetModel(classifier_dummy_tflite);
-  Serial.printf("[ECG] Denoiser: %zu bytes, %d version\n",
-                denoiser_dummy_tflite_len, dm->version());
-  Serial.printf("[ECG] Classifier: %zu bytes, %d version\n",
-                classifier_dummy_tflite_len, cm->version());
+  auto* dm = tflite::GetModel(robust_denoiser_int8_tflite);
+  auto* cm = tflite::GetModel(robust_classifier_int8_tflite);
+  Serial.printf("[ECG] Denoiser:  version=%d, %d bytes\n",
+                robust_denoiser_int8_tflite_len, dm->version());
+  Serial.printf("[ECG] Classifier: version=%d, %d bytes\n",
+                robust_classifier_int8_tflite_len, cm->version());
 }

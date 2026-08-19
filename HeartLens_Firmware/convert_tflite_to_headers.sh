@@ -21,7 +21,10 @@ for f in "$TRAIN_DIR"/*.tflite; do
 
   {
     printf '#ifdef __cplusplus\nextern "C" {\n#endif\n\n'
-    xxd -i "$f" | sed 's/^unsigned /unsigned const /'
+    # xxd names the symbol after the input path — run from the file's dir
+    # so the symbol is just <basename>_tflite, not the absolute path.
+    (cd "$(dirname "$f")" && xxd -i "$(basename "$f")") | \
+      sed 's/^unsigned /unsigned const /'
     printf '\n#ifdef __cplusplus\n}\n#endif\n'
   } > "$out"
 
