@@ -21,7 +21,7 @@ MARK="$ROOT/.markers"
 LOGS="$ROOT/train_logs"
 mkdir -p "$MARK" "$LOGS"
 
-TOTAL=14
+TOTAL=13
 N=0
 
 bump() { N=$((N + 1)); }
@@ -82,12 +82,11 @@ step mitdb "$TR" -- bash -c "
   '$PY' -c \"from data_loader import download_mitdb; download_mitdb('$TR/mitdb')\"
 " || exit 1
 
-# 3-4. auto_train denoiser, then classifier (PDF report; distinct markers)
+# 3. auto_train: denoiser + 3-class classifier, int8 sizes, PDF report.
+#    Run as ONE step — the report generator requires both models present.
 SRC="$ROOT/auto_train_output/training_report.pdf"
-step auto_train_denoiser "$ROOT" -- "$PY" auto_train.py \
-  --data-dir heart-lens-training/mitdb --skip-classifier --epochs 30 --max-per-class 3000 || exit 1
-step auto_train_classifier "$ROOT" -- "$PY" auto_train.py \
-  --data-dir heart-lens-training/mitdb --skip-denoiser --epochs 30 --max-per-class 3000 || exit 1
+step auto_train "$ROOT" -- "$PY" auto_train.py \
+  --data-dir heart-lens-training/mitdb --epochs 30 --max-per-class 3000 || exit 1
 
 # 5. Exp 1: grouped patient-level CV (5 folds x 3 seeds)
 SRC="$TR/results/group_kfold.json"

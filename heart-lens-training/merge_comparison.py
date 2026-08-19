@@ -67,8 +67,11 @@ def main():
           f"{OUT_DIR / 'model_comparison.csv'}, "
           f"{OUT_DIR / 'model_comparison.png'}")
     for r in rows:
+        i8 = f"{r['macro_f1_int8']:.4f}" if r["macro_f1_int8"] is not None else "N/A"
+        d = f"{r['quant_delta']:+.4f}" if r["quant_delta"] is not None else "N/A"
         print(f"  {r['model']:4s}  float32={r['macro_f1_float32']:.4f}  "
-              f"int8={r['macro_f1_int8']:.4f}  size={r['size_kb']:.1f} KB")
+              f"int8={i8}  delta={d}  size={r['size_kb']:.1f} KB  "
+              f"({r['quant_type']})")
     return 0
 
 

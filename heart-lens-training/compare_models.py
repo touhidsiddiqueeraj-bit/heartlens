@@ -32,17 +32,33 @@ MODEL_TYPES = ["cnn", "lstm", "gru", "tcn"]
 
 
 def quantize(model, X_val):
+    """Best-effort int8 conversion. Returns (tflite_bytes, quant_name).
+
+    Keras 3 RNNs (LSTM/GRU built from cells) graph as a tensor-list
+    while-loop that full-int8 lowering cannot handle (and the
+    SELECT_TF_OPS fallback cannot be calibration-quantized without a
+    Flex delegate). Those return a float32 TFLite model tagged
+    "float32" — a real finding: RNNs are not edge-quantizable, CNN/TCN are.
+    """
     def rep_data():
         for _ in range(200):
             idx = np.random.randint(0, len(X_val))
             yield [X_val[idx:idx + 1].astype(np.float32)]
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    converter.representative_dataset = rep_data
-    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
-    converter.inference_input_type = tf.int8
-    converter.inference_output_type = tf.int8
-    return converter.convert()
+
+    try:
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        converter.representative_dataset = rep_data
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+        converter.inference_input_type = tf.int8
+        converter.inference_output_type = tf.int8
+        return converter.convert(), "full-int8"
+    except Exception:
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        converter.target_spec.supported_ops = [
+            tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
+        converter._experimental_lower_tensor_list_ops = False
+        return converter.convert(), "float32"
 
 
 def eval_quantized(tflite_model, X_test, y_test):
@@ -115,24 +131,33 @@ def main():
         tflite_path = os.path.join(args.models_dir, f"compare_{mtype}_int8.tflite")
         if os.path.exists(tflite_path):
             tflite_model = open(tflite_path, "rb").read()
+            quant_name = "full-int8"  # cached prior full-int8 conversion
         else:
-            tflite_model = quantize(model, X_va)
-            with open(tflite_path, "wb") as f:
-                f.write(tflite_model)
+            tflite_model, quant_name = quantize(model, X_va)
+            if quant_name == "full-int8":
+                with open(tflite_path, "wb") as f:
+                    f.write(tflite_model)
 
-        pred_q = eval_quantized(tflite_model, X_te, y_te)
-        f1_quant = f1_score(y_te, pred_q, average=None, zero_division=0)
-        delta = float(np.mean(f1_float) - np.mean(f1_quant))
-        print(f"int8 per-class F1:     {np.round(f1_quant, 4)}  "
-              f"macro={np.mean(f1_quant):.4f}  (delta {delta:+.4f})")
+        if quant_name == "full-int8":
+            pred_q = eval_quantized(tflite_model, X_te, y_te)
+            f1_quant = f1_score(y_te, pred_q, average=None, zero_division=0)
+            delta = float(np.mean(f1_float) - np.mean(f1_quant))
+            print(f"int8 per-class F1:     {np.round(f1_quant, 4)}  "
+                  f"macro={np.mean(f1_quant):.4f}  (delta {delta:+.4f})")
+        else:
+            f1_quant = None
+            delta = None
+            print(f"int8: N/A ({quant_name} — Keras 3 RNN not edge-quantizable)")
         print(f"model size: {len(tflite_model)/1024:.1f} KB")
 
         rows.append({
             "model": mtype,
+            "quant_type": quant_name,
             "size_kb": round(len(tflite_model) / 1024, 1),
             "macro_f1_float32": round(float(np.mean(f1_float)), 4),
-            "macro_f1_int8": round(float(np.mean(f1_quant)), 4),
-            "quant_delta": round(delta, 4),
+            "macro_f1_int8": (round(float(np.mean(f1_quant)), 4)
+                              if f1_quant is not None else None),
+            "quant_delta": (round(delta, 4) if delta is not None else None),
             "f1_normal": round(float(f1_float[0]), 4),
             "f1_apb": round(float(f1_float[1]), 4),
             "f1_pvc": round(float(f1_float[2]), 4),
