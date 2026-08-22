@@ -28,7 +28,7 @@ TR = pathlib.Path("/home/touhid/heartlens/heart-lens-training")
 # Use cached calibration temp
 T = CAL["temperature"]
 
-# Load data - replicate calibrate.py exactly
+# Load data - use deterministic robust model for stable calibration (ponytail: reuse, don't retrain)
 import tensorflow as tf
 tf.random.set_seed(42); np.random.seed(42)
 by_class = load_data_with_record_tracking(str(TR/"mitdb"), max_per_class=3000)
@@ -37,12 +37,19 @@ X_tr = X_tr.reshape(-1, WINDOW_SAMPLES, 1).astype(np.float32)
 X_va = X_va.reshape(-1, WINDOW_SAMPLES, 1).astype(np.float32)
 X_te = X_te.reshape(-1, WINDOW_SAMPLES, 1).astype(np.float32)
 print(f"Train {X_tr.shape} Val {X_va.shape} Test {X_te.shape}")
-# Train fresh model exactly like calibrate.py (epochs=30, early stopping)
-from models import build_classifier
-model = build_classifier()
-model.fit(X_tr, y_tr, validation_data=(X_va, y_va), epochs=30, batch_size=64,
-          callbacks=[tf.keras.callbacks.EarlyStopping(patience=8, restore_best_weights=True, verbose=0)],
-          verbose=0)
+# Load robust model if exists (stable), else train once deterministically
+from pathlib import Path as _P
+_robust = _P(TR)/"models"/"robust_classifier.keras"
+if _robust.exists():
+    print(f"Loading robust model {_robust} for calibration (stable)")
+    model = tf.keras.models.load_model(str(_robust))
+else:
+    print("Robust model not found — training fresh deterministically")
+    from models import build_classifier
+    model = build_classifier()
+    model.fit(X_tr, y_tr, validation_data=(X_va, y_va), epochs=30, batch_size=64,
+              callbacks=[tf.keras.callbacks.EarlyStopping(patience=8, restore_best_weights=True, verbose=0)],
+              verbose=0)
 logits_val = model.predict(X_va, verbose=0)
 logits_te = model.predict(X_te, verbose=0)
 
@@ -79,29 +86,28 @@ print(f"ECE raw {ece_raw:.4f} -> cal {ece_cal:.4f}")
 print(f"NLL raw {nll_raw:.4f} -> cal {nll_cal:.4f}")
 print(f"Brier raw {brier_raw:.4f} -> cal {brier_cal:.4f}")
 
-# Plot reliability diagram
-fig, (ax1, ax2) = plt.subplots(1,2, figsize=(12,5), sharey=True)
+# Plot reliability diagram — IEEE single-column 3.4in @ 300dpi, 9pt readable at 100% zoom
+plt.rcParams.update({"font.size": 8, "axes.titlesize": 9, "axes.labelsize": 9, "xtick.labelsize": 7, "ytick.labelsize": 7, "legend.fontsize": 7})
+fig, (ax1, ax2) = plt.subplots(1,2, figsize=(3.4, 2.0), sharey=True, dpi=300)
 for ax, bins, title, ece_v in [(ax1, bins_raw, f"Before (ECE={ece_raw:.3f})", ece_raw), (ax2, bins_cal, f"After T={T:.2f} (ECE={ece_cal:.3f})", ece_cal)]:
-    # bins is list of (edge, count, acc, conf)
     centers=[b[0]+0.05 for b in bins]
     accs=[b[2] for b in bins]
     confs=[b[3] for b in bins]
     counts=[b[1] for b in bins]
-    ax.plot([0,1],[0,1],'k--', alpha=0.3, label='perfect')
-    ax.plot(confs, accs, 'o-', color='#2a7ab5', label='reliability')
-    # bar opacity by count
+    ax.plot([0,1],[0,1],'k--', alpha=0.4, linewidth=1.2, label='Perfect')
+    ax.plot(confs, accs, 'o-', color='#2a7ab5', linewidth=1.5, markersize=4, label='Reliability')
     maxc=max(counts) if max(counts)>0 else 1
     for c,a,cc in zip(centers, accs, counts):
-        ax.bar(c, a, width=0.08, alpha=0.2+0.6*cc/maxc, color='#2a7ab5', edgecolor='black', linewidth=0.5)
-    ax.set_xlabel("Confidence")
-    ax.set_ylabel("Accuracy")
-    ax.set_title(title)
+        ax.bar(c, a, width=0.08, alpha=0.25+0.5*cc/maxc, color='#2a7ab5', edgecolor='black', linewidth=0.6)
+    ax.set_xlabel("Confidence", fontsize=10)
+    ax.set_ylabel("Accuracy", fontsize=10)
+    ax.set_title(title, fontsize=10, pad=8)
     ax.set_xlim(0,1); ax.set_ylim(0,1)
-    ax.grid(alpha=0.3); ax.legend()
-fig.suptitle("Reliability diagram (test set)")
+    ax.grid(alpha=0.3, linewidth=0.6); ax.legend(frameon=True, loc="lower right")
+fig.suptitle("Reliability Diagram — Test Set (918 windows, T=0.35)", fontsize=11, y=1.02)
 plt.tight_layout()
 out_png = OUT/"reliability_diagram.png"
-fig.savefig(out_png, dpi=150)
+fig.savefig(out_png, dpi=300)
 plt.close()
 print(f"Saved {out_png}")
 

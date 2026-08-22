@@ -119,27 +119,30 @@ def main():
         print(f"{art:15s} best={best} avgs {avgs}")
     with open(OUT/"noise_cost_table.json","w") as f: json.dump({"per_artifact": results, "cost": cost}, f, indent=2)
 
-    # Plot 5 panels
+    # Plot 5 panels — IEEE single-column 3.4in @300dpi, compact but readable
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    fig, axes = plt.subplots(2,3, figsize=(14,8))
+    plt.rcParams.update({"font.size": 7, "axes.titlesize": 7, "axes.labelsize": 7, "xtick.labelsize": 6, "ytick.labelsize": 6, "legend.fontsize": 5.5})
+    fig, axes = plt.subplots(2,3, figsize=(3.4, 2.8), dpi=300)
     axes = axes.flatten()
     for idx, (art, vals) in enumerate(results.items()):
         ax = axes[idx]
         for k, label, color in [("raw","Raw","#d95f02"), ("filter","Butterworth","#1b9e77"), ("autoencoder","AE","#7570b3")]:
             ys = [vals[k][str(s)] for s in NOISE_LEVELS]
-            ax.plot(NOISE_LEVELS, ys, marker="o", label=label, color=color)
-        ax.set_title(art)
-        ax.set_xlabel("SNR (dB)"); ax.set_ylabel("Macro F1")
-        ax.set_ylim(0,1); ax.grid(alpha=0.3)
-        ax.legend(fontsize=8)
-    # hide extra
+            ax.plot(NOISE_LEVELS, ys, marker="o", markersize=3.5, linewidth=1.2, label=label, color=color)
+        # pretty title: baseline_wander -> Baseline Wander
+        pretty = art.replace("_"," ").title()
+        ax.set_title(pretty, fontsize=9, pad=6, weight="bold")
+        ax.set_xlabel("SNR (dB)", fontsize=8); ax.set_ylabel("Macro F1", fontsize=8)
+        ax.set_ylim(0.15,1.02); ax.set_xlim(-1,41)
+        ax.set_xticks([0,10,20,30,40]); ax.grid(alpha=0.3, linewidth=0.5)
+        ax.legend(fontsize=6.5, frameon=True, loc="lower right", handletextpad=0.4)
     if len(results)<6:
         axes[-1].axis("off")
-    plt.suptitle("Per-artifact robustness: Raw vs Butterworth vs AE")
-    plt.tight_layout()
-    fig.savefig(OUT/"per_artifact_noise.png", dpi=150)
+    fig.suptitle("Per-Artifact Robustness: Raw vs. Butterworth vs. Autoencoder (7 SNR Levels)", fontsize=11, y=1.02)
+    plt.tight_layout(pad=1.2)
+    fig.savefig(OUT/"per_artifact_noise.png", dpi=300)
     print(f"Saved {OUT/'per_artifact_noise.png'}")
     plt.close()
 

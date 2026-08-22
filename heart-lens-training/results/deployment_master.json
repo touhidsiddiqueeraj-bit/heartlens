@@ -8,15 +8,12 @@
     "apb_f1": 0.2834,
     "pvc_f1": 0.733,
     "size_kb": 77.9,
-    "latency_ms_per_window": 3150,
-    "throughput_windows_per_s": 0.32,
-    "rtf": 3.15,
+    "latency_ms_per_window": 3792,
+    "throughput_windows_per_s": 0.26,
+    "rtf": 3.79,
     "arena_kb": 200,
     "deployable": "no (float32 or >1s)",
-    "quant_delta": -0.2099958152448424,
-    "latency_ms_per_window_measured": 3792.3,
-    "rtf_measured": 3.79,
-    "throughput_measured": 0.264
+    "quant_delta": -0.2099958152448424
   },
   {
     "model": "TCN",
@@ -27,15 +24,12 @@
     "apb_f1": 0.2571,
     "pvc_f1": 0.7458,
     "size_kb": 70.1,
-    "latency_ms_per_window": 2800,
-    "throughput_windows_per_s": 0.36,
-    "rtf": 2.8,
+    "latency_ms_per_window": 3610,
+    "throughput_windows_per_s": 0.28,
+    "rtf": 3.61,
     "arena_kb": 200,
     "deployable": "no (float32 or >1s)",
-    "quant_delta": -0.23764390556414233,
-    "latency_ms_per_window_measured": 3610.8,
-    "rtf_measured": 3.61,
-    "throughput_measured": 0.277
+    "quant_delta": -0.23764390556414233
   },
   {
     "model": "LSTM",
@@ -51,10 +45,7 @@
     "rtf": 5.2,
     "arena_kb": 200,
     "deployable": "no (float32 or >1s)",
-    "quant_delta": null,
-    "latency_ms_per_window_measured": 5200,
-    "rtf_measured": 5.2,
-    "throughput_measured": 0.192
+    "quant_delta": null
   },
   {
     "model": "GRU",
@@ -70,9 +61,6 @@
     "rtf": 4.8,
     "arena_kb": 200,
     "deployable": "no (float32 or >1s)",
-    "quant_delta": null,
-    "latency_ms_per_window_measured": 4800,
-    "rtf_measured": 4.8,
-    "throughput_measured": 0.208
+    "quant_delta": null
   }
 ]

@@ -96,21 +96,26 @@ def main():
     with open(OUT/"sqi_ablation.json","w") as f: json.dump(results,f,indent=2)
     print(f"Saved {OUT/'sqi_ablation.json'}")
 
-    # Plot
+    # Plot — IEEE single-column 3.4in @300dpi, readable
     import matplotlib
     matplotlib.use("Agg"); import matplotlib.pyplot as plt
-    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(12,4))
+    plt.rcParams.update({"font.size": 7, "axes.titlesize": 8, "axes.labelsize": 7, "xtick.labelsize": 6, "ytick.labelsize": 6, "legend.fontsize": 6})
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(3.4, 2.0), dpi=300, sharey=False)
     thrs=[r["threshold"] for r in results]
-    ax1.plot(thrs, [r["clean_reject"] for r in results], 'o-', label='clean false-reject', color='#d95f02')
-    ax1.plot(thrs, [r["corr_reject"] for r in results], 's-', label='corrupted reject', color='#1b9e77')
-    ax1.set_xlabel("threshold"); ax1.set_ylabel("reject rate"); ax1.set_ylim(0,1); ax1.legend(); ax1.grid(alpha=0.3); ax1.set_title("SQI reject rates")
-    ax2.plot(thrs, [r["macro_clean_kept"] if r["macro_clean_kept"] is not None else 0 for r in results], 'o-', label='clean kept F1', color='#7570b3')
-    ax2.plot(thrs, [r["macro_corr_kept"] if r["macro_corr_kept"] is not None else 0 for r in results], 's-', label='corr kept F1', color='#e7298a')
-    ax2.axhline(macro_all, color='k', linestyle='--', label='no gate')
-    ax2.set_xlabel("threshold"); ax2.set_ylabel("macro F1"); ax2.set_ylim(0,1); ax2.legend(); ax2.grid(alpha=0.3); ax2.set_title("Downstream F1")
-    plt.suptitle("SQI gate ablation (current thr=0.35)")
+    ax1.plot(thrs, [r["clean_reject"] for r in results], 'o-', linewidth=1.5, markersize=4, label='Clean false-reject', color='#d95f02')
+    ax1.plot(thrs, [r["corr_reject"] for r in results], 's-', linewidth=1.5, markersize=4, label='Corrupted reject', color='#1b9e77')
+    ax1.axvline(0.35, color='red', linestyle=':', alpha=0.7, linewidth=1.2, label='Current (0.35)')
+    ax1.set_xlabel("Threshold", fontsize=10); ax1.set_ylabel("Reject Rate", fontsize=10); ax1.set_ylim(-0.05,1.05)
+    ax1.legend(frameon=True, loc="upper right"); ax1.grid(alpha=0.3, linewidth=0.6); ax1.set_title("SQI Reject Rates vs. Threshold", fontsize=10, pad=8)
+    ax2.plot(thrs, [r["macro_clean_kept"] if r["macro_clean_kept"] is not None else 0 for r in results], 'o-', linewidth=1.5, markersize=4, label='Clean kept F1', color='#7570b3')
+    ax2.plot(thrs, [r["macro_corr_kept"] if r["macro_corr_kept"] is not None else 0 for r in results], 's-', linewidth=1.5, markersize=4, label='Corrupted kept F1', color='#e7298a')
+    ax2.axhline(macro_all, color='k', linestyle='--', linewidth=1.2, label='No gate (0.728)')
+    ax2.axvline(0.35, color='red', linestyle=':', alpha=0.7, linewidth=1.2)
+    ax2.set_xlabel("Threshold", fontsize=10); ax2.set_ylabel("Macro F1", fontsize=10); ax2.set_ylim(0,1.05)
+    ax2.legend(frameon=True, loc="lower right"); ax2.grid(alpha=0.3, linewidth=0.6); ax2.set_title("Downstream F1 on Kept Windows", fontsize=10, pad=8)
+    fig.suptitle("SQI Gate Ablation — Clean vs. Corrupted (SNR 0, n=918)", fontsize=11, y=1.03)
     plt.tight_layout()
-    fig.savefig(OUT/"sqi_ablation.png", dpi=150)
+    fig.savefig(OUT/"sqi_ablation.png", dpi=300)
     print(f"Saved {OUT/'sqi_ablation.png'}")
 
 if __name__=="__main__":

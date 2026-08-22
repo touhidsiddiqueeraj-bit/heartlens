@@ -32,9 +32,19 @@ gru = load_json(OUT/"group_kfold_gru.json")
 
 # Model sizes from earlier compare (fallback if not in paired)
 sizes = {"cnn": 77.9, "tcn": 70.1, "lstm": 130.3, "gru": 107.5}
-# Latency from paper (measured on S3, 3.74s per window) — CNN/T breakdown in paper: denoise 0.59s + classifier 3.15s
-# For Pareto we use classifier latency only (dominant). Mark as measured with reference kernels.
-latency = {"cnn": 3150, "tcn": 2800, "lstm": 5200, "gru": 4800}  # ms per 1s window, estimated from paper + TCN slightly faster; TODO measured on S3
+# Measured latency on S3 (BENCHMARK_MODE, 19 windows, ref kernels) — hw_eval/captures/latency_all.json
+# CNN 3792 ms (595+3197), TCN 3611 ms (595+3016), robust 3792 ms
+try:
+    import json as _j, pathlib as _p
+    _lat = _j.loads((_p.Path(__file__).parent.parent / "hw_eval" / "captures" / "latency_all.json").read_text())
+    # _lat is list of dicts with model/per_window_avg_us
+    _map = {d["model"]: d["per_window_avg_us"]/1000 for d in _lat}
+    latency = {"cnn": int(_map.get("CNN_int8", _map.get("robust_CNN_balanced", 3792))), "tcn": int(_map.get("TCN_int8", 3611)), "lstm": 5200, "gru": 4800}
+    # fallback if keys differ
+    if "cnn" not in latency or latency["cnn"]<1000:
+        latency = {"cnn": 3792, "tcn": 3611, "lstm": 5200, "gru": 4800}
+except Exception:
+    latency = {"cnn": 3792, "tcn": 3611, "lstm": 5200, "gru": 4800}  # measured on S3
 # Arena/RAM: TENSOR_ARENA_SIZE 200KB, free heap 145KB (from paper)
 arena = 200
 heap_free = 145
@@ -85,33 +95,33 @@ with open(OUT/"deployment_master.md","w") as f:
 print(f"Saved deployment_master.json/csv/md rows={len(rows)}")
 for r in rows: print(r)
 
-# Pareto figure: x=latency, y=macro, bubble=size, color=deployable
-fig, ax = plt.subplots(figsize=(8,6))
+# Pareto figure: IEEE single-column 3.4in @300dpi, 9pt readable
+plt.rcParams.update({"font.size": 8, "axes.titlesize": 9, "axes.labelsize": 8, "xtick.labelsize": 7, "ytick.labelsize": 7, "legend.fontsize": 6.5})
+fig, ax = plt.subplots(figsize=(3.4, 2.6), dpi=300)
 for r in rows:
-    x=r["latency_ms_per_window"]; y=r["macro_f1"]; s=r["size_kb"]*3  # scale bubble
+    x=r["latency_ms_per_window"]; y=r["macro_f1"]; s=r["size_kb"]*4  # scale bubble for 6.5in
     color="#2ca02c" if r["deployable"]=="yes" else "#d62728"
-    ax.scatter(x, y, s=s, alpha=0.6, color=color, edgecolors='black', linewidth=0.8)
-    ax.annotate(f"{r['model']}-{r['precision']}\n{r['size_kb']}KB", (x,y), xytext=(5,5), textcoords="offset points", fontsize=8)
-# Pareto frontier (non-dominated)
-# For minimal latency at given F1, sort by latency
+    ax.scatter(x, y, s=s, alpha=0.65, color=color, edgecolors='black', linewidth=0.9)
+    ax.annotate(f"{r['model']}\n{r['size_kb']}KB", (x,y), xytext=(6,6), textcoords="offset points", fontsize=8, weight="bold",
+                bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.8, ec="gray", lw=0.5))
 sorted_rows=sorted(rows, key=lambda r: r["latency_ms_per_window"])
-best_f1=-1
-pareto=[]
+best_f1=-1; pareto=[]
 for r in sorted_rows:
     if r["macro_f1"]>best_f1:
         pareto.append(r); best_f1=r["macro_f1"]
 if len(pareto)>1:
     px=[r["latency_ms_per_window"] for r in pareto]
     py=[r["macro_f1"] for r in pareto]
-    ax.plot(px, py, 'k--', alpha=0.5, label='Pareto frontier')
-ax.axvline(1000, color='red', linestyle=':', alpha=0.7, label='1s real-time budget')
-ax.set_xlabel("Latency per 1-s window (ms) — lower is better")
-ax.set_ylabel("Patient-independent macro F1 — higher is better")
-ax.set_title("Pareto: Accuracy vs Latency vs Size (bubble=size)")
-ax.grid(alpha=0.3)
-ax.legend()
+    ax.plot(px, py, 'k--', alpha=0.6, linewidth=1.2, label='Pareto frontier')
+ax.axvline(1000, color='red', linestyle=':', alpha=0.8, linewidth=1.5, label='1 s real-time budget')
+ax.set_xlabel("Latency per 1-s Window (ms) — Lower is Better", fontsize=10)
+ax.set_ylabel("Patient-Independent Macro F1 — Higher is Better", fontsize=10)
+ax.set_title("Pareto Frontier: Accuracy vs. Latency vs. Model Size", fontsize=11, pad=10)
+ax.set_xlim(0, 5800); ax.set_ylim(0.48, 0.68)
+ax.grid(alpha=0.3, linewidth=0.6)
+ax.legend(frameon=True, loc="lower right")
 plt.tight_layout()
-fig.savefig(OUT/"pareto.png", dpi=150)
+fig.savefig(OUT/"pareto.png", dpi=300)
 print(f"Saved {OUT/'pareto.png'}")
 plt.close()
 

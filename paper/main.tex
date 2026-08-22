@@ -4,8 +4,9 @@
 \documentclass[10pt, conference, letterpaper]{IEEEtran}
 
 \IEEEoverridecommandlockouts
-\markboth{Anonymous}{Comparative Evaluation of Deep Learning Models on Edge Devices for Detection of Abnormal Heart Rhythms}
-\title{Comparative Evaluation of Deep Learning Models on Edge Devices for Detection of Abnormal Heart Rhythms}
+\markboth{Anonymous}{Patient-Independent TinyML ECG Classification: Generalization, Robustness, Quantization, and ESP32-S3 Deployment Trade-offs}
+\title{Patient-Independent TinyML ECG Classification:\\
+Generalization, Robustness, Quantization, and ESP32-S3 Deployment Trade-offs}
 \author{
 \IEEEauthorblockN{1st Given Name Surname}
 \IEEEauthorblockA{\textit{Dept. name of organization}\\
@@ -300,28 +301,28 @@ Measured per-window latency (BENCHMARK\_MODE, $n=19$, $240$\,MHz, reference kern
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.98\columnwidth]{figures/fig_calib.png}
-\caption{Calibration reliability diagram on the held-out test set ($T=0.350$, fit on val). ECE $0.389\rightarrow0.088$, NLL $0.623\rightarrow0.244$, Brier $0.323\rightarrow0.100$.}
+\caption{Calibration reliability diagram (robust CNN, $T=0.350$, val-only). ECE $0.328\rightarrow0.051$, NLL $0.700\rightarrow0.407$, Brier $0.381\rightarrow0.210$ — 11 bins, bar opacity = count.}
 \label{fig:calib}
 \end{figure}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.98\columnwidth]{figures/fig_pareto.png}
-\caption{Pareto: grouped CV macro vs. \emph{measured} per-window latency (3792\,ms CNN, 3611\,ms TCN) vs. size (bubble). Red line $1$\,s; all RTF $>1$ on reference kernels; removing denoiser saves $595$\,ms ($16\%$).}
+\caption{Pareto: grouped CV macro vs. \emph{measured} latency. TCN $3.61$\,s ($70.1$\,KB) vs. CNN $3.79$\,s ($77.9$\,KB) — TCN 5\% faster; both RTF $>3$ on ref kernels (red $1$\,s line).}
 \label{fig:pareto}
 \end{figure}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.98\columnwidth]{figures/fig_per_artifact.png}
-\caption{Per-artifact robustness ($5$ types $\times$ $7$ SNR $\times$ $3$ front-ends). Butterworth wins $3/5$ artifacts (BW, EMG, mixed), raw wins motion, AE only wins PLI low-SNR; denoiser cost $19\,$KB + $590\,$ms not justified.}
+\caption{Per-artifact robustness ($5$ types $\times$ $7$ SNR). Butterworth wins 3/5, raw wins motion, AE only wins PLI low-SNR — denoiser ($19$\,KB/$595$\,ms) not justified.}
 \label{fig:per_artifact}
 \end{figure}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.98\columnwidth]{figures/fig_sqi.png}
-\caption{SQI gate ablation: clean false-reject $62.6\%$ at $0.35$ (threshold $0.35$, paper), corrupted reject $27.9\%$; downstream macro on kept clean $0.644$ vs no-gate $0.728$. Gate as tuned is not deployable without retuning.}
+\caption{SQI gate: clean false-reject $62.6\%$ at $0.35$, corrupted reject $27.9\%$, downstream macro $0.727\rightarrow0.643$ — gate as tuned not deployable.}
 \label{fig:sqi}
 \end{figure}
 
