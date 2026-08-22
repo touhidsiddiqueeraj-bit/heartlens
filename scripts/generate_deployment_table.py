@@ -95,52 +95,53 @@ with open(OUT/"deployment_master.md","w") as f:
 print(f"Saved deployment_master.json/csv/md rows={len(rows)}")
 for r in rows: print(r)
 
-# Pareto figure: single-column 3.4in @300dpi — fix CNN/TCN cover + top/left/bottom overlap
-plt.rcParams.update({"font.size": 7, "axes.titlesize": 8, "axes.labelsize": 7.5, "xtick.labelsize": 6.5, "ytick.labelsize": 6.5, "legend.fontsize": 6})
-fig, ax = plt.subplots(figsize=(3.4, 2.9), dpi=300, constrained_layout=True)
+# Pareto figure: single-column 3.4in @300dpi — fix all overlaps, shorten labels, separate CNN/TCN
+plt.rcParams.update({"font.size": 7, "axes.titlesize": 8, "axes.labelsize": 7, "xtick.labelsize": 6.5, "ytick.labelsize": 6.5, "legend.fontsize": 6})
+fig, ax = plt.subplots(figsize=(3.4, 2.8), dpi=300)
 for r in rows:
-    # Separate CNN/TCN bubbles that would otherwise overlap (3792 vs 3611, 0.619 vs 0.615)
     x=r["latency_ms_per_window"]; y=r["macro_f1"]
-    # Jitter TCN slightly up/left for visibility if close to CNN
+    # Strong separation for CNN/TCN that are 181ms/0.004 apart — offset both X and Y
     if r["model"]=="TCN":
-        y_plot = y + 0.012  # nudge up to avoid CNN cover
+        x_plot = x - 90; y_plot = y + 0.018
     elif r["model"]=="CNN":
-        y_plot = y - 0.008
+        x_plot = x + 90; y_plot = y - 0.012
     else:
-        y_plot = y
-    s=r["size_kb"]*3.2
-    color="#2ca02c" if r["deployable"]=="yes" else "#d62728"
-    ax.scatter(x, y_plot, s=s, alpha=0.7, color=color, edgecolors='black', linewidth=0.8, zorder=3)
-    # Offset annotations to avoid cover: CNN below, TCN above, others to side
+        x_plot = x; y_plot = y
+    s=r["size_kb"]*3.0
+    color="#d62728"  # all red, not deployable, single color to avoid legend confusion
+    ax.scatter(x_plot, y_plot, s=s, alpha=0.75, color=color, edgecolors='black', linewidth=0.8, zorder=3)
     if r["model"]=="CNN":
-        xytext=(8, -18)
+        xytext=(12, -22)
     elif r["model"]=="TCN":
-        xytext=(8, 10)
+        xytext=(12, 12)
     elif r["model"]=="LSTM":
-        xytext=(6, 8)
+        xytext=(8, 10)
     else:
-        xytext=(6, -14)
-    ax.annotate(f"{r['model']}\n{r['size_kb']}KB", (x, y_plot), xytext=xytext, textcoords="offset points", fontsize=6, weight="bold",
-                bbox=dict(boxstyle="round,pad=0.25", fc="white", alpha=0.85, ec="gray", lw=0.4), zorder=4)
+        xytext=(8, -16)
+    ax.annotate(f"{r['model']}\n{r['size_kb']}KB", (x_plot, y_plot), xytext=xytext, textcoords="offset points", fontsize=6.5, weight="bold",
+                bbox=dict(boxstyle="round,pad=0.28", fc="white", alpha=0.9, ec="gray", lw=0.4), zorder=4,
+                arrowprops=dict(arrowstyle="-", color="gray", lw=0.6) if r["model"] in ["CNN","TCN"] else None)
 sorted_rows=sorted(rows, key=lambda r: r["latency_ms_per_window"])
 best_f1=-1; pareto=[]
 for r in sorted_rows:
     if r["macro_f1"]>best_f1:
         pareto.append(r); best_f1=r["macro_f1"]
+# Pareto line using jittered positions to avoid straight line through bubbles
 if len(pareto)>1:
-    px=[r["latency_ms_per_window"] for r in pareto]
-    py=[r["macro_f1"] + (0.012 if r["model"]=="TCN" else -0.008 if r["model"]=="CNN" else 0) for r in pareto]
+    px=[r["latency_ms_per_window"] + (-90 if r["model"]=="TCN" else 90 if r["model"]=="CNN" else 0) for r in pareto]
+    py=[r["macro_f1"] + (0.018 if r["model"]=="TCN" else -0.012 if r["model"]=="CNN" else 0) for r in pareto]
     ax.plot(px, py, 'k--', alpha=0.5, linewidth=1.0, label='Pareto frontier', zorder=2)
 ax.axvline(1000, color='red', linestyle=':', alpha=0.7, linewidth=1.2, label='1 s budget')
-ax.set_xlabel("Latency per 1-s Window (ms)", fontsize=7.5, labelpad=4)
-ax.set_ylabel("Macro F1", fontsize=7.5, labelpad=4)
-ax.set_title("Pareto: Accuracy vs. Latency vs. Size", fontsize=8.5, pad=10)
-ax.set_xlim(500, 5600); ax.set_ylim(0.50, 0.68)
-ax.tick_params(pad=2)
+ax.set_xlabel("Latency (ms) per 1-s Window", fontsize=7.5, labelpad=6)
+ax.set_ylabel("Macro F1", fontsize=7.5, labelpad=8)
+ax.set_title("Pareto Frontier", fontsize=9, pad=12)
+ax.set_xlim(0, 5800); ax.set_ylim(0.48, 0.70)
+ax.tick_params(pad=3)
 ax.grid(alpha=0.25, linewidth=0.5)
-# Legend at top to avoid bottom overlap, with frame
-ax.legend(frameon=True, loc="upper left", bbox_to_anchor=(0.02, 0.98), ncol=1, handlelength=1.2, borderpad=0.4, labelspacing=0.3)
-print(f"Saved {OUT/'pareto.png'}")
+# Legend at lower right — avoid top/bottom/left overlap, ensure inside
+ax.legend(frameon=True, loc="lower right", handlelength=1.2, borderpad=0.4, labelspacing=0.3, fontsize=6)
+plt.tight_layout(rect=(0, 0, 1, 0.92))
+fig.savefig(OUT/"pareto.png", dpi=300)
 plt.close()
 
 # Also generate prior-work gap table (M14) as markdown

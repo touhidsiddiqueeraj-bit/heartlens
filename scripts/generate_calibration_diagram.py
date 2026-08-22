@@ -88,9 +88,7 @@ print(f"Brier raw {brier_raw:.4f} -> cal {brier_cal:.4f}")
 
 # Plot reliability diagram — IEEE single-column 3.4in @ 300dpi, no header/line collision
 plt.rcParams.update({"font.size": 7, "axes.titlesize": 8, "axes.labelsize": 8, "xtick.labelsize": 6.5, "ytick.labelsize": 6.5, "legend.fontsize": 6})
-fig, (ax1, ax2) = plt.subplots(1,2, figsize=(3.4, 2.4), sharey=True, dpi=300,
-                                constrained_layout=True)
-# Leave room for suptitle: constrained_layout + larger figure height + lower suptitle
+fig, (ax1, ax2) = plt.subplots(1,2, figsize=(3.4, 2.6), sharey=True, dpi=300)
 for ax, bins, title, ece_v in [(ax1, bins_raw, f"Before\nECE={ece_raw:.3f}", ece_raw), (ax2, bins_cal, f"After T={T:.2f}\nECE={ece_cal:.3f}", ece_cal)]:
     centers=[b[0]+0.05 for b in bins]
     accs=[b[2] for b in bins]
@@ -103,14 +101,14 @@ for ax, bins, title, ece_v in [(ax1, bins_raw, f"Before\nECE={ece_raw:.3f}", ece
         ax.bar(c, a, width=0.07, alpha=0.2+0.5*cc/maxc, color='#2a7ab5', edgecolor='black', linewidth=0.5)
     ax.set_xlabel("Confidence", fontsize=7)
     ax.set_ylabel("Accuracy", fontsize=7)
-    # Two-line title with extra pad to avoid collision with suptitle
-    ax.set_title(title, fontsize=7.5, pad=14, linespacing=1.2)
+    ax.set_title(title, fontsize=7.5, pad=10, linespacing=1.2)
     ax.set_xlim(0,1); ax.set_ylim(0,1)
-    ax.grid(alpha=0.3, linewidth=0.5); ax.legend(frameon=True, loc="lower right", handlelength=1.2, borderpad=0.4)
-fig.suptitle("Reliability Diagram  (n=918, T=0.35)", fontsize=9, y=0.98, weight="bold")
+    ax.grid(alpha=0.3, linewidth=0.5); ax.legend(frameon=True, loc="lower right", handlelength=1.1, borderpad=0.3, labelspacing=0.2)
+fig.suptitle("Reliability Diagram  (n=918, T=0.35)", fontsize=8.5, y=0.98, weight="bold")
+plt.tight_layout(rect=(0, 0, 1, 0.92))
 # constrained_layout handles spacing; no tight_layout needed
 out_png = OUT/"reliability_diagram.png"
-fig.savefig(out_png, dpi=300, bbox_inches="tight")
+fig.savefig(out_png, dpi=300)
 plt.close()
 print(f"Saved {out_png}")
 

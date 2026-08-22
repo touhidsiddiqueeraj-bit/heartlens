@@ -123,11 +123,11 @@ def main():
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    # Single-column 3.4in, 3 rows: row1 2 cols, row2 2 cols, row3 1 centered
+    # Single-column 3.4in, 3 rows: row1 2 cols, row2 2 cols, row3 1 centered — no header collision
     plt.rcParams.update({"font.size": 7, "axes.titlesize": 7, "axes.labelsize": 7, "xtick.labelsize": 6, "ytick.labelsize": 6, "legend.fontsize": 5.5})
     import matplotlib.gridspec as gridspec
-    fig = plt.figure(figsize=(3.4, 4.8), dpi=300, constrained_layout=True)
-    gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.45, wspace=0.35)
+    fig = plt.figure(figsize=(3.4, 5.2), dpi=300)
+    gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.55, wspace=0.35)
     # Map 5 artifacts to 3 rows: row1 col0/1, row2 col0/1, row3 col0:1 centered
     axes = []
     for r in range(2):
@@ -151,8 +151,9 @@ def main():
         ax.grid(alpha=0.25, linewidth=0.4)
         # Legend inside lower right, compact
         ax.legend(fontsize=5, frameon=True, loc="lower right", handlelength=1.0, handletextpad=0.3, borderpad=0.3, labelspacing=0.2)
-    fig.suptitle("Per-Artifact Robustness (5 Types)", fontsize=8.5, y=0.98, weight="bold")
-    fig.savefig(OUT/"per_artifact_noise.png", dpi=300, bbox_inches="tight")
+    fig.suptitle("Per-Artifact Robustness (5 Types)", fontsize=9, y=0.985, weight="bold")
+    plt.tight_layout(rect=[0, 0, 1, 0.94])
+    fig.savefig(OUT/"per_artifact_noise.png", dpi=300)
     print(f"Saved {OUT/'per_artifact_noise.png'}")
     plt.close()
 
