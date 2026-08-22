@@ -97,7 +97,7 @@ for r in rows: print(r)
 
 # Pareto figure: IEEE single-column 3.4in @300dpi, 9pt readable
 plt.rcParams.update({"font.size": 8, "axes.titlesize": 9, "axes.labelsize": 8, "xtick.labelsize": 7, "ytick.labelsize": 7, "legend.fontsize": 6.5})
-fig, ax = plt.subplots(figsize=(3.4, 2.6), dpi=300)
+fig, ax = plt.subplots(figsize=(3.4, 2.8), dpi=300, constrained_layout=True)
 for r in rows:
     x=r["latency_ms_per_window"]; y=r["macro_f1"]; s=r["size_kb"]*4  # scale bubble for 6.5in
     color="#2ca02c" if r["deployable"]=="yes" else "#d62728"
@@ -121,7 +121,7 @@ ax.set_xlim(0, 5800); ax.set_ylim(0.48, 0.68)
 ax.grid(alpha=0.3, linewidth=0.6)
 ax.legend(frameon=True, loc="lower right")
 plt.tight_layout()
-fig.savefig(OUT/"pareto.png", dpi=300)
+fig.savefig(OUT/"pareto.png", dpi=300, bbox_inches="tight")
 print(f"Saved {OUT/'pareto.png'}")
 plt.close()
 

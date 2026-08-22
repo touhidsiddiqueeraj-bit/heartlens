@@ -87,8 +87,9 @@ print(f"NLL raw {nll_raw:.4f} -> cal {nll_cal:.4f}")
 print(f"Brier raw {brier_raw:.4f} -> cal {brier_cal:.4f}")
 
 # Plot reliability diagram — IEEE single-column 3.4in @ 300dpi, 9pt readable at 100% zoom
-plt.rcParams.update({"font.size": 8, "axes.titlesize": 9, "axes.labelsize": 9, "xtick.labelsize": 7, "ytick.labelsize": 7, "legend.fontsize": 7})
-fig, (ax1, ax2) = plt.subplots(1,2, figsize=(3.4, 2.0), sharey=True, dpi=300)
+plt.rcParams.update({"font.size": 8, "axes.titlesize": 9, "axes.labelsize": 9, "xtick.labelsize": 7, "ytick.labelsize": 7, "legend.fontsize": 6.5})
+fig, (ax1, ax2) = plt.subplots(1,2, figsize=(3.4, 2.1), sharey=True, dpi=300,
+                                constrained_layout=True)
 for ax, bins, title, ece_v in [(ax1, bins_raw, f"Before (ECE={ece_raw:.3f})", ece_raw), (ax2, bins_cal, f"After T={T:.2f} (ECE={ece_cal:.3f})", ece_cal)]:
     centers=[b[0]+0.05 for b in bins]
     accs=[b[2] for b in bins]
@@ -104,10 +105,10 @@ for ax, bins, title, ece_v in [(ax1, bins_raw, f"Before (ECE={ece_raw:.3f})", ec
     ax.set_title(title, fontsize=10, pad=8)
     ax.set_xlim(0,1); ax.set_ylim(0,1)
     ax.grid(alpha=0.3, linewidth=0.6); ax.legend(frameon=True, loc="lower right")
-fig.suptitle("Reliability Diagram — Test Set (918 windows, T=0.35)", fontsize=11, y=1.02)
-plt.tight_layout()
+fig.suptitle("Reliability Diagram (918 windows, T=0.35)", fontsize=8, y=1.02)
+# constrained_layout handles spacing; no tight_layout needed
 out_png = OUT/"reliability_diagram.png"
-fig.savefig(out_png, dpi=300)
+fig.savefig(out_png, dpi=300, bbox_inches="tight")
 plt.close()
 print(f"Saved {out_png}")
 
