@@ -6,5 +6,17 @@
   ],
   "svdb_macro_f1": 0.37493842418170925,
   "afdb_af_distribution": null,
-  "afdb_normal_distribution": null
+  "afdb_normal_distribution": null,
+  "svdb_f1_normal": 0.6626830969541967,
+  "svdb_f1_apb": 0.0,
+  "svdb_f1_pvc": 0.462132175590931,
+  "svdb_macro_nv": 0.5624076362725638,
+  "svdb_macro_3class_biased": 0.37493842418170925,
+  "svdb_apb_support": 0,
+  "note": "APB absent in SVDB (0 windows) \u2014 3-class macro is biased; report N/V macro",
+  "svdb_windows": {
+    "Normal": 28470,
+    "APB": 0,
+    "PVC": 1084
+  }
 }

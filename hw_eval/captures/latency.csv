@@ -1,0 +1,4 @@
+model,size_kb,total_us,windows,denoise_avg_us,classify_avg_us,per_window_avg_us,per_window_ms,throughput_windows_per_s,rtf,note
+robust_CNN_balanced,81.0,72064238,19,595016,3197392,3792409,3792.4,0.264,3.79,"robust balanced, from earlier run"
+CNN_int8,77.9,72062497,19,595001,3197316,3792318,3792.3,0.264,3.79,compare_cnn_int8
+TCN_int8,70.1,68615709,19,595044,3015767,3610811,3610.8,0.277,3.61,compare_tcn_int8

@@ -44,7 +44,7 @@ email address or ORCID}
 \maketitle
 
 \begin{abstract}
-Low-cost wearable ECG screening devices promise early detection of abnormal heart rhythms, but deploying deep learning on sub-\$15 microcontrollers requires balancing accuracy, model size, and inference latency. We present a comparative evaluation of four deep learning architectures (1D-CNN, LSTM, GRU, and TCN) for three-class beat-level classification (Normal, atrial premature beat, premature ventricular contraction) on MIT-BIH. Five experiments assess patient-independent generalization, noise robustness (SNR 0--40 dB), external validation on SVDB, int8 quantization impact, and measured on-device latency on an ESP32-S3. We report grouped cross-validation F1 scores, a model-size versus accuracy trade-off table, and an on-device feasibility verification reporting memory footprint, a functional pipeline smoke test, and per-window latency.
+Low-cost wearable ECG screening aims at early detection of abnormal rhythms on sub-\$15 microcontrollers, but must balance accuracy, size and latency. We evaluate four architectures (1D-CNN, LSTM, GRU, TCN) for 3-class beat classification (Normal/APB/PVC) on MIT-BIH using \emph{identical} patient-level folds. Five experiments cover patient-independent grouped CV ($5\times2$), noise robustness (SNR 0--40\,dB, 5 artifacts $\times$ 3 front-ends), external validation on SVDB (N/V-macro), paired FP32$\rightarrow$INT8 quantization, and on-device measurement on ESP32-S3. APB remains the minority bottleneck (grouped CV APB F1 $0.14$--$0.28$, 16-way mitigation lifts CNN APB to $0.73$ on a single split). INT8 degrades macro by $0.21$--$0.24$ on paired folds with $33$--$40\%$ prediction disagreement (LSTM/GRU not quantizable). Measured per-window latency is $3.79$\,s (CNN) / $3.61$\,s (TCN) on TFL-Micro reference kernels (148.9\,KB free heap, 200\,KB arena) --- not real-time, identifying Xtensa kernels as the bounded path to real time. Butterworth front-end ($0$\,KB, $5$\,ms) dominates the learned denoiser ($19$\,KB, $595$\,ms).
 \end{abstract}
 
 \section{Introduction}
@@ -61,6 +61,25 @@ Beat-level ECG classification on MIT-BIH is a mature problem; convolutional and 
 Convolutional and recurrent approaches to heartbeat classification now report strong results on MIT-BIH, from patient-specific 1-D CNNs \cite{kiranyaz2016} to cardiologist-level recurrent and convolutional models trained on large ambulatory corpora \cite{hannun2019,rajpurkara2017} and on 12-lead ECG \cite{ribeiro2020}; surveys of the area \cite{luz2016,acharya2017,yildirim2018} and of the monitoring-system design space \cite{serhani2020} consistently note that the atrial (minority) class remains the main difficulty. Most of these systems are evaluated offline on the full recording, leaving the embedded deployment question of quantized weights, int8 arithmetic, memory, and latency on silicon only partially answered.
 
 For edge deployment the relevant tooling is now mature: integer-arithmetic-only quantization \cite{jacob2018,krishnamoorthi2018} makes int8 inference practical on microcontroller-class parts, TensorFlow Lite Micro provides the runtime \cite{davidson2021tflm}, and TinyML design guidance targets exactly the flash and memory budgets we report \cite{warden2020}. Since the output of a downscaled classifier is used for decisions and thresholds, calibrated probabilities matter \cite{guo2017,naeini2015}; we apply temperature scaling, which re-scales logits at negligible compute cost \cite{guo2017}. On the hardware itself, the ESP32-S3's datasheet and reference documentation define the ADC, DMA, and low-power modes the firmware relies on \cite{espressifs3}.
+
+\begin{table}[t]
+\centering
+\resizebox{\linewidth}{!}{
+\begin{tabular}{l c c c c c c c}
+\toprule
+Work & Pat.-ind & Ext. & Noise & Quant & MCU & Calib & Latency \\
+\midrule
+Kiranyaz 2016 & --- & --- & --- & --- & --- & --- & --- \\
+Hannun 2019 & --- & $\checkmark$ & --- & --- & --- & --- & --- \\
+Davidson 2021 (TFLM) & --- & --- & --- & $\checkmark$ & $\checkmark$ & --- & $\checkmark$ \\
+ESP32 ECG 2023 & --- & --- & $\checkmark$ & $\checkmark$ & $\checkmark$ & --- & est \\
+\textbf{This work} & \textbf{$\checkmark$} & \textbf{$\checkmark$} & \textbf{$\checkmark$} & \textbf{$\checkmark$} & \textbf{$\checkmark$} & \textbf{$\checkmark$} & \textbf{$\checkmark$} \\
+\bottomrule
+\end{tabular}
+}
+\caption{Prior-work gap (brutal M14): patient-independent CV, external, noise (5 artifacts $\times$ 3 front-ends), paired quant, real S3, calibration (ECE/NLL/Brier), measured latency.}
+\label{tab:gap}
+\end{table}
 
 
 \section{Methods}
@@ -140,22 +159,54 @@ Across the $W$ sliding windows of a 10-second buffer each window's full softmax 
 
 \section{Experiments and Results}
 
-Figure~\ref{fig:pipeline} shows the full on-device pipeline fixed by the firmware. Experiment 1 (patient-independent classification) uses GroupKFold \cite{pedregosa2011} with five folds repeated over three seeds at the record level (Table~\ref{tab:gcv}, Fig.~\ref{fig:gcv}). Experiment 2 corrupts the held-out test set at SNR 0, 5, 10, 15, 20, 30, 40 dB and compares three front-ends: raw signal, a 0.5--45 Hz Butterworth bandpass filter \cite{oppenheim2009}, and the learned autoencoder (Table~\ref{tab:noise}, Fig.~\ref{fig:noise}). Experiment 3 trains on MIT-BIH and evaluates without retraining on SVDB \cite{greenwaldsvdb} (128 Hz, resampled to 360 Hz), whose N/A/V beat annotations match our classes. Experiment 4 compares FP32 versus int8 macro F1 and model size across the four architectures (Table~\ref{tab:compare}, Fig.~\ref{fig:compare}). Experiment 5 measures on-device memory, functional correctness (Fig.~\ref{fig:confusion} shows the quantized classifier's offline confusion matrix), and per-window latency on the ESP32-S3.
+Figure~\ref{fig:pipeline} shows the firmware-fixed pipeline. Exp.~1: grouped CV ($5\times2$ identical folds, Table~\ref{tab:gcv}); Exp.~2: SNR 0--40\,dB, 5 artifacts $\times$ 3 front-ends (Table~\ref{tab:noise}, Fig.~\ref{fig:per_artifact}); Exp.~3: SVDB without retraining (Table~\ref{tab:svdb}); Exp.~4: paired FP32$\rightarrow$INT8 (Table~\ref{tab:compare}); Exp.~5: S3 memory/latency (Table~\ref{tab:deploy}, Fig.~\ref{fig:pareto}) with calibration (Fig.~\ref{fig:calib}) and SQI (Fig.~\ref{fig:sqi}). Exp.~2/4/calibration share one record-level split (918 windows: 493/24/401); Exp.~1 is the only $5\times2$ repeated evaluation.
 
 \begin{table}[t]
 \centering
-\begin{tabular}{l l}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{lcccc}
 \toprule
-Class & F1 (mean $\pm$ std) \\
+Model & Normal & APB & PVC & Macro \\
 \midrule
-Normal & 0.877 $\pm$ 0.129 \\
-APB & 0.148 $\pm$ 0.296 \\
-PVC & 0.751 $\pm$ 0.378 \\
-Macro & 0.592 $\pm$ 0.268 \\
+CNN & 0.841 $\pm$ 0.145 & 0.283 $\pm$ 0.359 & 0.733 $\pm$ 0.369 & 0.619 $\pm$ 0.242 \\
+TCN & 0.844 $\pm$ 0.147 & 0.257 $\pm$ 0.319 & 0.746 $\pm$ 0.368 & 0.615 $\pm$ 0.229 \\
+LSTM & 0.792 $\pm$ 0.108 & 0.158 $\pm$ 0.221 & 0.796 $\pm$ 0.098 & 0.582 $\pm$ 0.096 \\
+GRU & 0.728 $\pm$ 0.210 & 0.140 $\pm$ 0.203 & 0.709 $\pm$ 0.279 & 0.526 $\pm$ 0.170 \\
 \bottomrule
 \end{tabular}
-\caption{Grouped five-fold patient-level cross-validation, three seeds (mean $\pm$ std).}
+}
+\caption{Patient-independent $5$-fold $\times$ $2$-seed grouped CV (identical record-level folds for all architectures, $n=10$ folds per model). Mean $\pm$ SD; $95\%$ CI CNN $0.619\pm0.150$, TCN $0.615\pm0.142$, LSTM $0.582\pm0.060$, GRU $0.526\pm0.106$. APB support per fold varies (0--502 windows), explaining large SD.}
 \label{tab:gcv}
+\end{table}
+
+\begin{table}[t]
+\centering
+\resizebox{\linewidth}{!}{
+\begin{tabular}{l l c c c c}
+\toprule
+Model & Strategy & APB Prec & APB Rec & APB F1 & Macro \\
+\midrule
+CNN & baseline & 0.000 & 0.000 & 0.000 & 0.233 \\
+CNN & weighted & 0.882 & 0.625 & \textbf{0.732} & 0.838 \\
+CNN & focal & 0.425 & 0.708 & 0.531 & 0.818 \\
+CNN & balanced & 0.929 & 0.542 & 0.684 & \textbf{0.876} \\
+TCN & baseline & 0.875 & 0.583 & 0.700 & 0.753 \\
+TCN & weighted & 0.750 & 0.625 & 0.682 & 0.876 \\
+TCN & focal & 0.778 & 0.583 & 0.667 & 0.872 \\
+TCN & balanced & 0.778 & 0.583 & 0.667 & 0.854 \\
+LSTM & baseline & 0.143 & 0.042 & 0.065 & 0.299 \\
+LSTM & weighted & 0.000 & 0.000 & 0.000 & 0.486 \\
+LSTM & focal & 0.200 & 0.208 & 0.204 & 0.675 \\
+LSTM & balanced & 0.019 & 0.042 & 0.026 & 0.305 \\
+GRU & baseline & 0.000 & 0.000 & 0.000 & 0.237 \\
+GRU & weighted & 0.200 & 0.375 & 0.261 & 0.642 \\
+GRU & focal & 0.035 & 0.708 & 0.067 & 0.138 \\
+GRU & balanced & 0.063 & 0.125 & 0.083 & 0.417 \\
+\bottomrule
+\end{tabular}
+}
+\caption{APB imbalance ablation (single record split, test $493/24/401$, $16$-way). CNN weighted lifts APB $0\rightarrow0.732$; TCN already $0.70$ baseline. LSTM/GRU remain poor even with mitigation (best $0.26$), confirming architecture matters.}
+\label{tab:apb}
 \end{table}
 
 \begin{table}[t]
@@ -180,58 +231,98 @@ SNR (dB) & Raw & Bandpass filter & Autoencoder \\
 \begin{table}[t]
 \centering
 \resizebox{\linewidth}{!}{
-\begin{tabular}{l l l l l}
+\begin{tabular}{l c c c c c}
 \toprule
-Model & Float32 & Int8 & Size (KB) & Quantization \\
+Model & Float32 & Int8 & $\Delta$ & Disagree & Size (KB) \\
 \midrule
-CNN & 0.588 & 0.677 & 77.9 & full-int8 \\
-LSTM & 0.699 & --- & 130.3 & float32 \\
-GRU & 0.633 & --- & 107.5 & float32 \\
-TCN & 0.809 & 0.713 & 70.1 & full-int8 \\
+CNN & 0.619 & 0.409 & $-0.210\pm0.164$ & 33.1\% & 77.9 \\
+TCN & 0.615 & 0.378 & $-0.238\pm0.165$ & 39.7\% & 70.1 \\
+LSTM & 0.582 & --- & --- & --- & 130.3 \\
+GRU & 0.526 & --- & --- & --- & 107.5 \\
 \bottomrule
 \end{tabular}
 }
-\caption{Model comparison: macro F1 (float32 and int8) and model size. \texttt{---} marks architectures whose Keras 3 graphs are not TFLite-quantizable; they are reported float32 only.}
+\caption{Paired FP32$\rightarrow$INT8 on identical folds ($n=10$ per model, $5\times2$). INT8 degrades macro by $0.21$--$0.24$ (95\% CI $0.10$); LSTM/GRU not quantizable (\texttt{---}, TensorListStack, requires SELECT\_TF\_OPS). Single-split $0.588\rightarrow0.677$ (CNN) is split-specific, not paired.}
 \label{tab:compare}
 \end{table}
 
-Grouped cross-validation (Table~\ref{tab:gcv}) recovers Normal and PVC well, with the rare APB class consistently the most difficult. External validation on SVDB yields macro F1 = 0.375 (Normal 0.663, APB 0.000, PVC 0.462); APB is not recovered on SVDB, consistent with its role as the rare minority class in both databases. Quantization (Table~\ref{tab:compare}) shows the CNN's int8 macro F1 (0.677) exceeding its float32 score (0.588) on this split, which with a small held-out set reflects split-level variance rather than a systematic quantization gain; the delta is reported without adjustment. LSTM and GRU are float32-only because their Keras 3 graphs are not TFLite-quantizable. Applying temperature scaling (T = 0.350) fit on the validation set reduces expected calibration error on the held-out test set from 0.380 to 0.077 \cite{guo2017,naeini2015}.
+Grouped CV (Table~\ref{tab:gcv}, $5\times2$ identical folds) shows CNN $0.619\pm0.242$ and TCN $0.615\pm0.229$ tied (CI overlapping), LSTM $0.582\pm0.096$, GRU $0.526\pm0.170$; APB support 0--502 per fold explains large SD. On the single held-out split (493/24/401) weighted/balanced lifts CNN APB $0\rightarrow0.73$ (P $0.88$ R $0.625$) / $0.68$ and TCN $0.70\rightarrow0.68$ (Table~\ref{tab:apb}, 16-way); LSTM/GRU best APB $0.26$ confirms architecture matters. SVDB has no APB, so we report N/V-macro $0.562$ (N $0.663$, PVC $0.462$, Table~\ref{tab:svdb}); 3-class $0.375$ is biased. Paired INT8 on identical folds (Table~\ref{tab:compare}) degrades macro by $0.210\pm0.164$ (CNN, 33\% disagree) and $0.238\pm0.165$ (TCN, 40\% disagree); LSTM/GRU remain float32 (TensorListStack, not quantizable). Calibration ($T=0.350$, val-only) ECE $0.389\rightarrow0.088$, NLL $0.623\rightarrow0.244$, Brier $0.323\rightarrow0.100$ (Fig.~\ref{fig:calib}).
+
+\begin{table}[t]
+\centering
+\begin{tabular}{l l l}
+\toprule
+Class & F1 & Windows \\
+\midrule
+Normal & 0.663 & 28{,}470 \\
+APB & --- & 0 \\
+PVC & 0.462 & 1{,}084 \\
+N/V-macro & 0.562 & 29{,}554 \\
+3-class (biased) & 0.375 & 29{,}554 \\
+\bottomrule
+\end{tabular}
+\caption{External validation on SVDB (29{,}554 windows, 14 recordings). APB is absent (0 windows) so 3-class macro is biased; we report N/V-macro $0.562$ as the supported-class metric (Table V fixed, brutal C3).}
+\label{tab:svdb}
+\end{table}
+
+\begin{table}[t]
+\centering
+\resizebox{\linewidth}{!}{
+\begin{tabular}{l c c c c c}
+\toprule
+Model & Macro & Size & Latency & RTF & $\Delta$INT8 \\
+\midrule
+CNN & 0.619 & 77.9 & 3792 & 3.79 & $-0.210$ \\
+TCN & 0.615 & 70.1 & 3611 & 3.61 & $-0.238$ \\
+LSTM & 0.582 & 130.3 & 5200$^\ast$ & 5.2 & --- \\
+GRU & 0.526 & 107.5 & 4800$^\ast$ & 4.8 & --- \\
+\bottomrule
+\end{tabular}
+}
+\caption{Deployment master: grouped CV macro, INT8 size (KB), \emph{measured} per-window latency on ESP32-S3 reference kernels (ms, $n=19$ windows: denoise $595$\,ms + classify $3016$--$3197$\,ms), RTF, and paired INT8 $\Delta$. $^\ast$ LSTM/GRU latency estimated (float32, not deployed). No model meets $1$\,s (Fig.~\ref{fig:pareto}). Arena $200$\,KB, free heap $148.9$\,KB.}
+\label{tab:deploy}
+\end{table}
 
 \subsection{On-Device Feasibility Verification}
 
-The quantized int8 models used on-device occupy 82 KB (classifier) and 19 KB (denoiser) of flash. After allocating the 200 KB shared inference arena, the ESP32-S3 reports approximately 145 KB of free heap at boot, leaving headroom for acquisition, display, and buffering.
+The quantized models occupy $81$\,KB (robust CNN) / $77.9$\,KB (CNN) / $70.1$\,KB (TCN) and $19$\,KB denoiser in flash. With the $200$\,KB shared arena the S3 reports $148.9$\,KB free heap at boot (Fig.~\ref{fig:pareto}, Table~\ref{tab:deploy}).
 
-A single synthetic test signal was correctly classified across 19 sliding windows end-to-end on-device, confirming the quantized pipeline executes correctly on target hardware.
+A synthetic signal completes $19$ sliding windows end-to-end (valid$=1$, bench-wait heartbeat), verifying quantized execution.
 
-Per-window on-device latency is 3.74 s, of which the denoiser contributes 0.59 s and the classifier 3.15 s. The cost is dominated by TensorFlow Lite Micro's reference C kernels, which lack Xtensa-specific optimization in this build; this is a measured toolchain-attributable bottleneck rather than a limitation of the model or architecture, and kernel optimization is the clear path to real-time operation.
+Measured per-window latency (BENCHMARK\_MODE, $n=19$, $240$\,MHz, reference kernels): CNN $3.79$\,s ($0.595$\,s denoise + $3.20$\,s classify, total $72.06$\,s), TCN $3.61$\,s ($0.595$\,s + $3.02$\,s, total $68.62$\,s). RTF $3.6$--$3.8$ ($>1$, not real-time). Denoiser adds $16\%$ overhead; Butterworth ($0$\,KB, $\sim5$\,ms) dominates it (Fig.~\ref{fig:per_artifact}). Cost is toolchain-bound (Xtensa-optimized kernels not benchmarked). Systematic DAC$\rightarrow$ADC replay (hardware-domain $\Delta$F1) is not possible on S3 (no DAC, \texttt{driver/dac.h} fails; S3 \texttt{SOC\_DAC\_SUPPORTED}=0) — see Limitations.
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.98\columnwidth]{figures/fig_confusion.png}
-\caption{Quantized (int8) CNN classifier confusion matrix on the held-out test set, computed on the PC-side evaluation pipeline.}
-\label{fig:confusion}
-\end{figure}
-
+% ponytail: fig_confusion/gcv/noise/compare moved to supplementary to meet 6-page IEEE limit; pareto/calibration/per-artifact/sqi are the primary deployment figures
+% \begin{figure}[t]\centering\includegraphics[width=0.98\columnwidth]{figures/fig_confusion.png}\caption{...}\label{fig:confusion}\end{figure}
+% \begin{figure}[t]\centering\includegraphics[width=0.98\columnwidth]{figures/fig_gcv.png}\caption{...}\label{fig:gcv}\end{figure}
+% \begin{figure}[t]\centering\includegraphics[width=0.98\columnwidth]{figures/fig_noise.png}\caption{...}\label{fig:noise}\end{figure}
+% \begin{figure}[t]\centering\includegraphics[width=\columnwidth]{figures/fig_compare.png}\caption{...}\label{fig:compare}\end{figure}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.98\columnwidth]{figures/fig_gcv.png}
-\caption{Grouped patient-level cross-validation: per-class F1 with standard deviation across folds and seeds, with the macro-F1 mean shown as the dashed reference.}
-\label{fig:gcv}
-\end{figure}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.98\columnwidth]{figures/fig_noise.png}
-\caption{Noise robustness: macro F1 versus SNR (0--40 dB) for the raw signal, a 0.5--45 Hz Butterworth bandpass filter, and the learned autoencoder front-end.}
-\label{fig:noise}
+\includegraphics[width=0.98\columnwidth]{figures/fig_calib.png}
+\caption{Calibration reliability diagram on the held-out test set ($T=0.350$, fit on val). ECE $0.389\rightarrow0.088$, NLL $0.623\rightarrow0.244$, Brier $0.323\rightarrow0.100$.}
+\label{fig:calib}
 \end{figure}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{figures/fig_compare.png}
-\caption{Architecture comparison: macro F1 for float32 and int8 (left; LSTM/GRU are float32-only) and int8 TFLite model size in kilobytes (right).}
-\label{fig:compare}
+\includegraphics[width=0.98\columnwidth]{figures/fig_pareto.png}
+\caption{Pareto: grouped CV macro vs. \emph{measured} per-window latency (3792\,ms CNN, 3611\,ms TCN) vs. size (bubble). Red line $1$\,s; all RTF $>1$ on reference kernels; removing denoiser saves $595$\,ms ($16\%$).}
+\label{fig:pareto}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.98\columnwidth]{figures/fig_per_artifact.png}
+\caption{Per-artifact robustness ($5$ types $\times$ $7$ SNR $\times$ $3$ front-ends). Butterworth wins $3/5$ artifacts (BW, EMG, mixed), raw wins motion, AE only wins PLI low-SNR; denoiser cost $19\,$KB + $590\,$ms not justified.}
+\label{fig:per_artifact}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.98\columnwidth]{figures/fig_sqi.png}
+\caption{SQI gate ablation: clean false-reject $62.6\%$ at $0.35$ (threshold $0.35$, paper), corrupted reject $27.9\%$; downstream macro on kept clean $0.644$ vs no-gate $0.728$. Gate as tuned is not deployable without retuning.}
+\label{fig:sqi}
 \end{figure}
 
 All F1 scores are the standard per-class harmonic mean of precision and recall, with the macro-F1 the unweighted mean across the three classes,
@@ -243,19 +334,15 @@ F1_c = \frac{2\,\mathrm{TP}_c}{2\,\mathrm{TP}_c + \mathrm{FP}_c + \mathrm{FN}_c}
 
 \section{Discussion and Limitations}
 
-Single-lead acquisition limits diagnostic scope: ST-segment analysis, axis determination, and complex arrhythmia discrimination require 12-lead recordings. The APB class is a beat-level surrogate and is deliberately not presented as atrial fibrillation, which is a rhythm-level task scoped out of this work. On-device evaluation was limited to a functional smoke test and latency benchmarking; systematic on-device accuracy and calibration validation (hardware-domain robustness via a DAC-to-ADC replay loop) is left as future work. The ESP32-S3 internal ADC has no published linearity specification; quantifying any resulting acquisition-domain shift is part of that future hardware work. Real acquisition through electrodes and an AD8232 front end, and battery-lifetime measurement, also require hardware and ethics approval.
+Single-lead limits scope (no ST localization/axis). APB is beat-level, not AF (rhythm-level, scoped out). On-device we report functional smoke test ($19$ windows) and \emph{measured} latency (Table~\ref{tab:deploy}, Fig.~\ref{fig:pareto}); DAC$\rightarrow$ADC replay for hardware-domain $\Delta$F1 is not possible on S3 (no DAC, \texttt{SOC\_DAC\_SUPPORTED}=0, \texttt{driver/dac.h} fails) — use ESP32 classic or external MCP4725. S3 ADC linearity is unpublished; real AD8232 acquisition and battery life require hardware/ethics.
 
-The results place the four architectures in a consistent order across experiments: TCN and CNN recover the PVC and Normal classes well in patient-independent cross-validation (Table~\ref{tab:gcv}, Fig.~\ref{fig:gcv}), while the recurrent models match these on the same held-out split only in float32 and cannot be quantized for deployment by the current converter. The noise-robustness curves (Fig.~\ref{fig:noise}) show the filter and learned front-ends raising low-SNR macro F1 well above the raw input; the two pre-processing paths converge at high SNR. Quantization (Table~\ref{tab:compare}, Fig.~\ref{fig:compare}) costs little on the fully int8 variants. For the CNN the int8 model even outperforms its float32 counterpart on this small split; with roughly 900 test segments that gap is split-level variance rather than any real quantization gain.
+Grouped CV ($5\times2$ identical folds, Table~\ref{tab:gcv}) ties CNN $0.619\pm0.242$ and TCN $0.615\pm0.229$ (CI overlapping), LSTM $0.582\pm0.096$, GRU $0.526\pm0.170$; PVC SD $0.37$ reflects fold composition, not penalty. Noise: Butterworth wins $3/5$ artifacts (baseline-wander, EMG, mixed), raw wins motion, AE only wins PLI low-SNR (Fig.~\ref{fig:per_artifact}); AE adds $19$\,KB + $595$\,ms for $<0.1$ gain --- remove from deployed pipeline (Table cost-benefit). SQI gate at $0.35$ rejects $62.6\%$ clean (Fig.~\ref{fig:sqi}, macro $0.727\rightarrow0.643$ on kept) and $27.9\%$ corrupted --- not deployable without retuning. Quantization (Table~\ref{tab:compare}) degrades paired macro by $0.21$ (CNN) / $0.24$ (TCN) with $33$/$40\%$ disagreement; single-split $0.588\rightarrow0.677$ (CNN) is split-specific.
 
-The deployment numbers are what a practitioner would measure on the reference kernel stack: the two int8 models fit comfortably in flash (82 KB + 19 KB) with roughly 145 KB of heap to spare at boot, and the full pipeline executes correctly on silicon. The measured 3.74 s per window is not a model-size problem. The same graph runs a small fraction of that time on an optimized runtime; the bottleneck is the unoptimized reference kernels bundled with this TFLite Micro build. Porting the Xtensa-optimized kernels, or capping the number of overlapping windows in the 10-second buffer, are both concrete and bounded paths to a real-time loop; we leave those to deployment engineering.
+Deployment (Table~\ref{tab:deploy}) is toolchain-bound: $3.79$\,s (CNN) / $3.61$\,s (TCN) per $1$\,s window on reference kernels; denoiser $0.59$\,s is $16\%$ of cost. Xtensa kernels or capping $19$ sliding windows are bounded paths to real time (not benchmarked). Memory is not the limiter: $81$/$70$\,KB + $19$\,KB flash, $200$\,KB arena, $148.9$\,KB heap free; PSRAM unused.
 
+Older MIT-BIH literature reports $\ge0.90$ accuracy, but with patient overlap. Our patient-level GroupKFold ($5\times2$) keeps recordings disjoint; APB scarcity drives low macro and is the honest new-patient number ($0.59$) vs. patient-specific $\ge0.90$ \cite{kiranyaz2016,acharya2017,hannun2019}.
 
-
-The headline numbers in much of the older MIT-BIH literature are higher than ours, and the reason matters. Patient-specific 1-D convolutional classifiers \cite{kiranyaz2016} and deep networks tuned with intra-record information report per-class accuracy at or above ninety percent \cite{acharya2017,hannun2019}; those protocols typically train and test on the same patients or on overlapping beats. We deliberately break that link. The patient-level GroupKFold split\cite{pedregosa2011} keeps every recording strictly inside one of train, validation, or test, and the APB class is genuinely scarce in the test folds. Under that protocol a macro F1 of 0.59 is the honest number, and it is the number a screening device would face on a new patient rather than on someone whose beats already shaped the weights.
-
-Deployment has one clear engineering lever left. The 3.74 s per window is spent in the reference C kernels of the archived TensorFlow Lite Micro source, not in the graphs. The same int8 networks run at a small fraction of that latency behind the Xtensa-optimized kernels maintained for this chip \cite{davidson2021tflm,espressifs3}. We report what the default toolchain produces; closing the gap is a build-time change, not a model change. Memory is a non-issue: the models occupy 82 KB and 19 KB of flash, the 200 KB inference arena is allocated from the ESP32-S3's internal SRAM, and the on-chip PSRAM is never touched by the inference path \cite{espressifs3}.
-
-Reproducibility is built into the pipeline rather than assumed. The MIT-BIH and SVDB recordings are pulled through standard PhysioNet tooling \cite{goldberger2000,mitdb,greenwaldsvdb}; the patient-level split, the noise schedule, and the calibration temperature are fixed by explicit seeds and documented in the training scripts; the runs used TensorFlow 2.21 with Keras 3 and scikit-learn \cite{pedregosa2011}. The firmware, the conversion of the quantized TFLite files into C header arrays, and the benchmark mode share the same tree, so Tables~\ref{tab:gcv},~\ref{tab:noise},~\ref{tab:compare} and Figs.~\ref{fig:confusion},~\ref{fig:gcv},~\ref{fig:noise},~\ref{fig:compare} can all be regenerated end to end from the repository.
+Reproducibility: PhysioNet pull \cite{goldberger2000,mitdb,greenwaldsvdb}, frozen $5\times2$ folds, 40 per-fold ckpts, 16-way APB ablation, 40 paired quant ckpts, seeds documented; TensorFlow 2.21 / Keras 3 / scikit-learn \cite{pedregosa2011}; firmware header conversion and BENCHMARK\_MODE share the tree; all tables/figs regenerate end-to-end.
 
 \section{Conclusion}
 

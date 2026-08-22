@@ -1,0 +1,17 @@
+{
+  "model": "lstm",
+  "seed": 1,
+  "fold": 0,
+  "quant_type": "float32",
+  "size_kb": 130.3,
+  "f1_fp32": [
+    0.8636651870640456,
+    0.6084142394822006,
+    0.8827160493827161
+  ],
+  "macro_fp32": 0.7849318253096541,
+  "f1_int8": null,
+  "macro_int8": null,
+  "delta_macro": null,
+  "disagree": null
+}

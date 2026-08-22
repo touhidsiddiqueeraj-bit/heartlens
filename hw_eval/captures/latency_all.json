@@ -1,0 +1,32 @@
+[
+  {
+    "model": "robust_CNN_balanced",
+    "size_kb": 81.0,
+    "total_us": 72064238,
+    "windows": 19,
+    "denoise_avg_us": 595016,
+    "classify_avg_us": 3197392,
+    "per_window_avg_us": 3792409,
+    "note": "robust balanced, from earlier run"
+  },
+  {
+    "model": "CNN_int8",
+    "size_kb": 77.9,
+    "total_us": 72062497,
+    "windows": 19,
+    "denoise_avg_us": 595001,
+    "classify_avg_us": 3197316,
+    "per_window_avg_us": 3792318,
+    "note": "compare_cnn_int8"
+  },
+  {
+    "model": "TCN_int8",
+    "size_kb": 70.1,
+    "total_us": 68615709,
+    "windows": 19,
+    "denoise_avg_us": 595044,
+    "classify_avg_us": 3015767,
+    "per_window_avg_us": 3610811,
+    "note": "compare_tcn_int8"
+  }
+]

@@ -1,0 +1,17 @@
+{
+  "model": "gru",
+  "seed": 1,
+  "fold": 2,
+  "quant_type": "float32",
+  "size_kb": 107.5,
+  "f1_fp32": [
+    0.6637824474660075,
+    0.02040816326530612,
+    0.8050682261208577
+  ],
+  "macro_fp32": 0.4964196122840571,
+  "f1_int8": null,
+  "macro_int8": null,
+  "delta_macro": null,
+  "disagree": null
+}

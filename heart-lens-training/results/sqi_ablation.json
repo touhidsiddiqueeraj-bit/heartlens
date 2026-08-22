@@ -1,0 +1,82 @@
+[
+  {
+    "threshold": 0.2,
+    "clean_reject": 0.6481481481481481,
+    "corr_reject": 0.5751633986928104,
+    "macro_clean_all": 0.7276578426495953,
+    "macro_clean_kept": 0.6644028754120498,
+    "macro_corr_kept": 0.047619047619047616,
+    "kept_clean": 323,
+    "kept_corr": 390
+  },
+  {
+    "threshold": 0.25,
+    "clean_reject": 0.6274509803921569,
+    "corr_reject": 0.4760348583877996,
+    "macro_clean_all": 0.7276578426495953,
+    "macro_clean_kept": 0.6461085661539686,
+    "macro_corr_kept": 0.08784596871239471,
+    "kept_clean": 342,
+    "kept_corr": 481
+  },
+  {
+    "threshold": 0.3,
+    "clean_reject": 0.6263616557734204,
+    "corr_reject": 0.38671023965141615,
+    "macro_clean_all": 0.7276578426495953,
+    "macro_clean_kept": 0.6436306548763296,
+    "macro_corr_kept": 0.13802816901408452,
+    "kept_clean": 343,
+    "kept_corr": 563
+  },
+  {
+    "threshold": 0.35,
+    "clean_reject": 0.6263616557734204,
+    "corr_reject": 0.27886710239651413,
+    "macro_clean_all": 0.7276578426495953,
+    "macro_clean_kept": 0.6436306548763296,
+    "macro_corr_kept": 0.18061674008810572,
+    "kept_clean": 343,
+    "kept_corr": 662
+  },
+  {
+    "threshold": 0.4,
+    "clean_reject": 0.6263616557734204,
+    "corr_reject": 0.11111111111111116,
+    "macro_clean_all": 0.7276578426495953,
+    "macro_clean_kept": 0.6436306548763296,
+    "macro_corr_kept": 0.21745114230663365,
+    "kept_clean": 343,
+    "kept_corr": 816
+  },
+  {
+    "threshold": 0.5,
+    "clean_reject": 0.6263616557734204,
+    "corr_reject": 0.0010893246187363426,
+    "macro_clean_all": 0.7276578426495953,
+    "macro_clean_kept": 0.6436306548763296,
+    "macro_corr_kept": 0.23278921220723917,
+    "kept_clean": 343,
+    "kept_corr": 917
+  },
+  {
+    "threshold": 0.7,
+    "clean_reject": 0.6263616557734204,
+    "corr_reject": 0.0010893246187363426,
+    "macro_clean_all": 0.7276578426495953,
+    "macro_clean_kept": 0.6436306548763296,
+    "macro_corr_kept": 0.23278921220723917,
+    "kept_clean": 343,
+    "kept_corr": 917
+  },
+  {
+    "threshold": 1.0,
+    "clean_reject": 0.6263616557734204,
+    "corr_reject": 0.0010893246187363426,
+    "macro_clean_all": 0.7276578426495953,
+    "macro_clean_kept": 0.6436306548763296,
+    "macro_corr_kept": 0.23278921220723917,
+    "kept_clean": 343,
+    "kept_corr": 917
+  }
+]
