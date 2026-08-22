@@ -123,8 +123,8 @@ def main():
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    plt.rcParams.update({"font.size": 7, "axes.titlesize": 7, "axes.labelsize": 7, "xtick.labelsize": 6, "ytick.labelsize": 6, "legend.fontsize": 5.5})
-    fig, axes = plt.subplots(2,3, figsize=(3.4, 2.6), dpi=300,
+    plt.rcParams.update({"font.size": 8, "axes.titlesize": 9, "axes.labelsize": 8, "xtick.labelsize": 7, "ytick.labelsize": 7, "legend.fontsize": 6.5})
+    fig, axes = plt.subplots(2,3, figsize=(6.8, 3.4), dpi=300,
                               constrained_layout=True)
     axes = axes.flatten()
     for idx, (art, vals) in enumerate(results.items()):
@@ -141,7 +141,7 @@ def main():
         ax.legend(fontsize=6.5, frameon=True, loc="lower right", handletextpad=0.4)
     if len(results)<6:
         axes[-1].axis("off")
-    fig.suptitle("Per-Artifact Robustness (Raw vs. Butterworth vs. AE)", fontsize=8, y=1.04)
+    fig.suptitle("Per-Artifact Robustness: Raw vs. Butterworth vs. Autoencoder (7 SNR Levels)", fontsize=11, y=1.02)
     fig.savefig(OUT/"per_artifact_noise.png", dpi=300, bbox_inches="tight")
     print(f"Saved {OUT/'per_artifact_noise.png'}")
     plt.close()

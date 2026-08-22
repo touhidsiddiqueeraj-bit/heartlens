@@ -1,0 +1,22 @@
+{
+  "generated": "2026-08-22T23:50:00Z",
+  "sections": [
+    {
+      "id": "mockups",
+      "label": "Mockups",
+      "groups": [
+        {
+          "slug": "reviewer-response",
+          "files": [
+            { "label": "Reviewer Response Deck", "path": "mockups/reviewer-response/index.html" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "design-systems",
+      "label": "Design Systems",
+      "groups": []
+    }
+  ]
+}
