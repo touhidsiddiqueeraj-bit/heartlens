@@ -96,25 +96,28 @@ def main():
     with open(OUT/"sqi_ablation.json","w") as f: json.dump(results,f,indent=2)
     print(f"Saved {OUT/'sqi_ablation.json'}")
 
-    # Plot — IEEE single-column 3.4in @300dpi, readable
+    # Plot — IEEE single-column 3.4in @300dpi, legend at top, no header overlap
     import matplotlib
     matplotlib.use("Agg"); import matplotlib.pyplot as plt
-    plt.rcParams.update({"font.size": 7, "axes.titlesize": 8, "axes.labelsize": 7, "xtick.labelsize": 6, "ytick.labelsize": 6, "legend.fontsize": 6})
-    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(3.4, 2.1), dpi=300, sharey=False,
+    plt.rcParams.update({"font.size": 7, "axes.titlesize": 7.5, "axes.labelsize": 7, "xtick.labelsize": 6, "ytick.labelsize": 6, "legend.fontsize": 6})
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(3.4, 2.4), dpi=300, sharey=False,
                                     constrained_layout=True)
     thrs=[r["threshold"] for r in results]
-    ax1.plot(thrs, [r["clean_reject"] for r in results], 'o-', linewidth=1.5, markersize=4, label='Clean false-reject', color='#d95f02')
-    ax1.plot(thrs, [r["corr_reject"] for r in results], 's-', linewidth=1.5, markersize=4, label='Corrupted reject', color='#1b9e77')
-    ax1.axvline(0.35, color='red', linestyle=':', alpha=0.7, linewidth=1.2, label='Current (0.35)')
-    ax1.set_xlabel("Threshold", fontsize=10); ax1.set_ylabel("Reject Rate", fontsize=10); ax1.set_ylim(-0.05,1.05)
-    ax1.legend(frameon=True, loc="upper right"); ax1.grid(alpha=0.3, linewidth=0.6); ax1.set_title("SQI Reject Rates vs. Threshold", fontsize=10, pad=8)
-    ax2.plot(thrs, [r["macro_clean_kept"] if r["macro_clean_kept"] is not None else 0 for r in results], 'o-', linewidth=1.5, markersize=4, label='Clean kept F1', color='#7570b3')
-    ax2.plot(thrs, [r["macro_corr_kept"] if r["macro_corr_kept"] is not None else 0 for r in results], 's-', linewidth=1.5, markersize=4, label='Corrupted kept F1', color='#e7298a')
-    ax2.axhline(macro_all, color='k', linestyle='--', linewidth=1.2, label='No gate (0.728)')
-    ax2.axvline(0.35, color='red', linestyle=':', alpha=0.7, linewidth=1.2)
-    ax2.set_xlabel("Threshold", fontsize=10); ax2.set_ylabel("Macro F1", fontsize=10); ax2.set_ylim(0,1.05)
-    ax2.legend(frameon=True, loc="lower right"); ax2.grid(alpha=0.3, linewidth=0.6); ax2.set_title("Downstream F1 on Kept Windows", fontsize=10, pad=8)
-    fig.suptitle("SQI Gate Ablation (n=918)", fontsize=8, y=1.03)
+    ax1.plot(thrs, [r["clean_reject"] for r in results], 'o-', linewidth=1.3, markersize=3.5, label='Clean false-reject', color='#d95f02')
+    ax1.plot(thrs, [r["corr_reject"] for r in results], 's-', linewidth=1.3, markersize=3.5, label='Corrupted reject', color='#1b9e77')
+    ax1.axvline(0.35, color='red', linestyle=':', alpha=0.7, linewidth=1.1)
+    ax1.set_xlabel("Threshold", fontsize=7); ax1.set_ylabel("Reject Rate", fontsize=7); ax1.set_ylim(-0.05,1.05)
+    # Legend at top outside to avoid graph collision
+    ax1.legend(frameon=True, loc="upper center", bbox_to_anchor=(0.5, 1.22), ncol=1, handlelength=1.0, borderpad=0.3, labelspacing=0.2)
+    ax1.grid(alpha=0.25, linewidth=0.5); ax1.set_title("Reject Rates", fontsize=7.5, pad=10)
+    ax2.plot(thrs, [r["macro_clean_kept"] if r["macro_clean_kept"] is not None else 0 for r in results], 'o-', linewidth=1.3, markersize=3.5, label='Clean kept F1', color='#7570b3')
+    ax2.plot(thrs, [r["macro_corr_kept"] if r["macro_corr_kept"] is not None else 0 for r in results], 's-', linewidth=1.3, markersize=3.5, label='Corrupted kept F1', color='#e7298a')
+    ax2.axhline(macro_all, color='k', linestyle='--', linewidth=1.0, label='No gate (0.728)')
+    ax2.axvline(0.35, color='red', linestyle=':', alpha=0.7, linewidth=1.1)
+    ax2.set_xlabel("Threshold", fontsize=7); ax2.set_ylabel("Macro F1", fontsize=7); ax2.set_ylim(0,1.05)
+    ax2.legend(frameon=True, loc="upper center", bbox_to_anchor=(0.5, 1.22), ncol=1, handlelength=1.0, borderpad=0.3, labelspacing=0.2)
+    ax2.grid(alpha=0.25, linewidth=0.5); ax2.set_title("Downstream F1", fontsize=7.5, pad=10)
+    fig.suptitle("SQI Gate Ablation  (n=918, thr=0.35 red)", fontsize=8, y=0.99, weight="bold")
     fig.savefig(OUT/"sqi_ablation.png", dpi=300, bbox_inches="tight")
     print(f"Saved {OUT/'sqi_ablation.png'}")
 

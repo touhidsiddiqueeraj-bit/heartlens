@@ -123,25 +123,35 @@ def main():
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    plt.rcParams.update({"font.size": 8, "axes.titlesize": 9, "axes.labelsize": 8, "xtick.labelsize": 7, "ytick.labelsize": 7, "legend.fontsize": 6.5})
-    fig, axes = plt.subplots(2,3, figsize=(6.8, 3.4), dpi=300,
-                              constrained_layout=True)
-    axes = axes.flatten()
+    # Single-column 3.4in, 3 rows: row1 2 cols, row2 2 cols, row3 1 centered
+    plt.rcParams.update({"font.size": 7, "axes.titlesize": 7, "axes.labelsize": 7, "xtick.labelsize": 6, "ytick.labelsize": 6, "legend.fontsize": 5.5})
+    import matplotlib.gridspec as gridspec
+    fig = plt.figure(figsize=(3.4, 4.8), dpi=300, constrained_layout=True)
+    gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.45, wspace=0.35)
+    # Map 5 artifacts to 3 rows: row1 col0/1, row2 col0/1, row3 col0:1 centered
+    axes = []
+    for r in range(2):
+        for c in range(2):
+            axes.append(fig.add_subplot(gs[r, c]))
+    # Last artifact centered spanning both cols but narrower (so not stretched)
+    axes.append(fig.add_subplot(gs[2, :]))
+    # Only use first 5 axes
     for idx, (art, vals) in enumerate(results.items()):
+        if idx >=5: break
         ax = axes[idx]
         for k, label, color in [("raw","Raw","#d95f02"), ("filter","Butterworth","#1b9e77"), ("autoencoder","AE","#7570b3")]:
             ys = [vals[k][str(s)] for s in NOISE_LEVELS]
-            ax.plot(NOISE_LEVELS, ys, marker="o", markersize=3.5, linewidth=1.2, label=label, color=color)
-        # pretty title: baseline_wander -> Baseline Wander
+            ax.plot(NOISE_LEVELS, ys, marker="o", markersize=2.8, linewidth=1.1, label=label, color=color)
         pretty = art.replace("_"," ").title()
-        ax.set_title(pretty, fontsize=9, pad=6, weight="bold")
-        ax.set_xlabel("SNR (dB)", fontsize=8); ax.set_ylabel("Macro F1", fontsize=8)
+        # Last panel (mixed) is wider, so title slightly larger pad
+        ax.set_title(pretty, fontsize=7, pad=5, weight="bold")
+        ax.set_xlabel("SNR (dB)", fontsize=6.5); ax.set_ylabel("Macro F1", fontsize=6.5)
         ax.set_ylim(0.15,1.02); ax.set_xlim(-1,41)
-        ax.set_xticks([0,10,20,30,40]); ax.grid(alpha=0.3, linewidth=0.5)
-        ax.legend(fontsize=6.5, frameon=True, loc="lower right", handletextpad=0.4)
-    if len(results)<6:
-        axes[-1].axis("off")
-    fig.suptitle("Per-Artifact Robustness: Raw vs. Butterworth vs. Autoencoder (7 SNR Levels)", fontsize=11, y=1.02)
+        ax.set_xticks([0,10,20,30,40]); ax.tick_params(pad=1.5)
+        ax.grid(alpha=0.25, linewidth=0.4)
+        # Legend inside lower right, compact
+        ax.legend(fontsize=5, frameon=True, loc="lower right", handlelength=1.0, handletextpad=0.3, borderpad=0.3, labelspacing=0.2)
+    fig.suptitle("Per-Artifact Robustness (5 Types)", fontsize=8.5, y=0.98, weight="bold")
     fig.savefig(OUT/"per_artifact_noise.png", dpi=300, bbox_inches="tight")
     print(f"Saved {OUT/'per_artifact_noise.png'}")
     plt.close()

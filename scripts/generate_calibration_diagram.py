@@ -86,26 +86,28 @@ print(f"ECE raw {ece_raw:.4f} -> cal {ece_cal:.4f}")
 print(f"NLL raw {nll_raw:.4f} -> cal {nll_cal:.4f}")
 print(f"Brier raw {brier_raw:.4f} -> cal {brier_cal:.4f}")
 
-# Plot reliability diagram — IEEE single-column 3.4in @ 300dpi, 9pt readable at 100% zoom
-plt.rcParams.update({"font.size": 8, "axes.titlesize": 9, "axes.labelsize": 9, "xtick.labelsize": 7, "ytick.labelsize": 7, "legend.fontsize": 6.5})
-fig, (ax1, ax2) = plt.subplots(1,2, figsize=(3.4, 2.1), sharey=True, dpi=300,
+# Plot reliability diagram — IEEE single-column 3.4in @ 300dpi, no header/line collision
+plt.rcParams.update({"font.size": 7, "axes.titlesize": 8, "axes.labelsize": 8, "xtick.labelsize": 6.5, "ytick.labelsize": 6.5, "legend.fontsize": 6})
+fig, (ax1, ax2) = plt.subplots(1,2, figsize=(3.4, 2.4), sharey=True, dpi=300,
                                 constrained_layout=True)
-for ax, bins, title, ece_v in [(ax1, bins_raw, f"Before (ECE={ece_raw:.3f})", ece_raw), (ax2, bins_cal, f"After T={T:.2f} (ECE={ece_cal:.3f})", ece_cal)]:
+# Leave room for suptitle: constrained_layout + larger figure height + lower suptitle
+for ax, bins, title, ece_v in [(ax1, bins_raw, f"Before\nECE={ece_raw:.3f}", ece_raw), (ax2, bins_cal, f"After T={T:.2f}\nECE={ece_cal:.3f}", ece_cal)]:
     centers=[b[0]+0.05 for b in bins]
     accs=[b[2] for b in bins]
     confs=[b[3] for b in bins]
     counts=[b[1] for b in bins]
-    ax.plot([0,1],[0,1],'k--', alpha=0.4, linewidth=1.2, label='Perfect')
-    ax.plot(confs, accs, 'o-', color='#2a7ab5', linewidth=1.5, markersize=4, label='Reliability')
+    ax.plot([0,1],[0,1],'k--', alpha=0.4, linewidth=1.0, label='Perfect')
+    ax.plot(confs, accs, 'o-', color='#2a7ab5', linewidth=1.3, markersize=3.5, label='Reliability')
     maxc=max(counts) if max(counts)>0 else 1
     for c,a,cc in zip(centers, accs, counts):
-        ax.bar(c, a, width=0.08, alpha=0.25+0.5*cc/maxc, color='#2a7ab5', edgecolor='black', linewidth=0.6)
-    ax.set_xlabel("Confidence", fontsize=10)
-    ax.set_ylabel("Accuracy", fontsize=10)
-    ax.set_title(title, fontsize=10, pad=8)
+        ax.bar(c, a, width=0.07, alpha=0.2+0.5*cc/maxc, color='#2a7ab5', edgecolor='black', linewidth=0.5)
+    ax.set_xlabel("Confidence", fontsize=7)
+    ax.set_ylabel("Accuracy", fontsize=7)
+    # Two-line title with extra pad to avoid collision with suptitle
+    ax.set_title(title, fontsize=7.5, pad=14, linespacing=1.2)
     ax.set_xlim(0,1); ax.set_ylim(0,1)
-    ax.grid(alpha=0.3, linewidth=0.6); ax.legend(frameon=True, loc="lower right")
-fig.suptitle("Reliability Diagram (918 windows, T=0.35)", fontsize=8, y=1.02)
+    ax.grid(alpha=0.3, linewidth=0.5); ax.legend(frameon=True, loc="lower right", handlelength=1.2, borderpad=0.4)
+fig.suptitle("Reliability Diagram  (n=918, T=0.35)", fontsize=9, y=0.98, weight="bold")
 # constrained_layout handles spacing; no tight_layout needed
 out_png = OUT/"reliability_diagram.png"
 fig.savefig(out_png, dpi=300, bbox_inches="tight")
