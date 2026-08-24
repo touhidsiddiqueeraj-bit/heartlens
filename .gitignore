@@ -27,3 +27,9 @@ paper/*.blg
 paper/*.out
 paper/*.log
 heart-lens-training/results/*.keras
+
+# tool state
+.palimpsest/
+# publishables (force-included below)
+!upload/*.pdf
+!upload/*.docx
