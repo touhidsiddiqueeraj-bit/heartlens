@@ -23,7 +23,7 @@
   <text x="390" y="462" text-anchor="middle"><tspan x="390" dy="0">Architectures: CNN . LSTM . GRU . TCN</tspan><tspan x="390" dy="30">+ Conv1D autoencoder denoiser</tspan></text>
   <text x="390" y="578" text-anchor="middle"><tspan x="390" dy="0">E4 Quantization + calibration</tspan><tspan x="390" dy="30">FP32 to int8 TFLite (CNN/TCN full-int8,</tspan><tspan x="390" dy="30">LSTM/GRU float32); temperature T</tspan></text>
   <text x="390" y="712" text-anchor="middle"><tspan x="390" dy="0">Experiments</tspan><tspan x="390" dy="30">E1 grouped CV . E2 noise 0-40 dB</tspan><tspan x="390" dy="30">E3 external SVDB validation</tspan></text>
-  <text x="390" y="850" text-anchor="middle"><tspan x="390" dy="0">E5 On-device verification</tspan><tspan x="390" dy="30">ESP32-S3 int8, memory and latency</tspan></text>
+  <text x="390" y="850" text-anchor="middle"><tspan x="390" dy="0">E5 On-device verification</tspan><tspan x="390" dy="30">ESP32-S3 int8/fp32, memory and latency</tspan></text>
 
   <line x1="390" y1="168" x2="390" y2="180" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrM)"/>
   <line x1="390" y1="288" x2="390" y2="300" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrM)"/>
