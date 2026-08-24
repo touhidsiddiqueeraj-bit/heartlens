@@ -49,7 +49,7 @@
 #define ADC_CALIB_DEFAULT_VREF 1100  // mV — measure actual with esp_adc_cal
 
 // ─── Inference ─────────────────────────────────────────────────────
-#define TENSOR_ARENA_SIZE       (200 * 1024)  // 200 KB shared arena (real int8 models)
+#define TENSOR_ARENA_SIZE       (300 * 1024)  // 300 KB: master esp-nn im2col scratch needs ~106 KB classifier-side
 #define MODEL_INPUT_SAMPLES     360   // 1 second at 360 Hz (beat-level)
 #define INFERENCE_STRIDE        180   // 50% overlap sliding window
 #define SLIDING_WINDOWS_PER_BUF (SAMPLES_PER_WINDOW / INFERENCE_STRIDE - 1)

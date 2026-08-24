@@ -28,5 +28,135 @@
     "classify_avg_us": 3015767,
     "per_window_avg_us": 3610811,
     "note": "compare_tcn_int8"
+  },
+  {
+    "model": "LSTM_fused_float32",
+    "size_kb": 126.5,
+    "windows": 19,
+    "denoise_avg_us": 595107,
+    "classify_avg_us": 978808,
+    "per_window_avg_us": 1573915,
+    "runs_us": [
+      1573917,
+      1573856,
+      1573972
+    ],
+    "note": "fused UnidirectionalSequenceLSTM (builtin ops, weights transferred from compare_lstm.keras); measured 2026-08-25, S3 N16R8 @240MHz, TFLM ref kernels, 200KB internal-SRAM arena; replaces hardcoded estimate 5200ms"
+  },
+  {
+    "model": "GRU_fused_float32",
+    "size_kb": 103.7,
+    "windows": 19,
+    "denoise_avg_us": 595110,
+    "classify_avg_us": 784006,
+    "per_window_avg_us": 1379117,
+    "runs_us": [
+      1378979,
+      1379125,
+      1379248
+    ],
+    "note": "fused UnidirectionalSequenceGRU (builtin ops, weights from compare_gru.keras); same session/config as LSTM; replaces hardcoded estimate 4800ms"
+  },
+  {
+    "model": "CNN_int8_reverify",
+    "size_kb": 77.9,
+    "windows": 19,
+    "denoise_avg_us": 595016,
+    "classify_avg_us": 3197395,
+    "per_window_avg_us": 3792411,
+    "runs_us": [
+      3792411
+    ],
+    "note": "post-restore sanity check of stock firmware; matches original CNN_int8 capture within 0.03%"
+  },
+  {
+    "model": "CNN_int8_espnn",
+    "size_kb": 77.9,
+    "windows": 19,
+    "denoise_avg_us": 315194,
+    "classify_avg_us": 184340,
+    "per_window_avg_us": 499539,
+    "runs_us": [
+      499548,
+      499539,
+      499539
+    ],
+    "probs": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "gt_probs": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "note": "esp-nn master kernels (post ACCX/align fixes); bit-exact vs PC reference"
+  },
+  {
+    "model": "TCN_int8_espnn",
+    "size_kb": 70.1,
+    "windows": 19,
+    "denoise_avg_us": 315253,
+    "classify_avg_us": 293428,
+    "per_window_avg_us": 608682,
+    "runs_us": [
+      608682
+    ],
+    "probs": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "gt_probs": [
+      0.0214,
+      0.008,
+      0.9706
+    ],
+    "note": "argmax matches PC GT; prob delta from XNNPACK-on-PC saturation, device deterministic"
+  },
+  {
+    "model": "LSTM_fused_espnn",
+    "size_kb": 126.5,
+    "windows": 19,
+    "denoise_avg_us": 315273,
+    "classify_avg_us": 974754,
+    "per_window_avg_us": 1290027,
+    "runs_us": [
+      1290027
+    ],
+    "probs": [
+      0.408,
+      0.0551,
+      0.5368
+    ],
+    "gt_probs": [
+      0.2057,
+      0.2643,
+      0.53
+    ],
+    "note": "float32 fused UNSQ-LSTM; argmax+conf match PC GT"
+  },
+  {
+    "model": "GRU_fused_espnn",
+    "size_kb": 103.7,
+    "windows": 19,
+    "denoise_avg_us": 315293,
+    "classify_avg_us": 776059,
+    "per_window_avg_us": 1091352,
+    "runs_us": [
+      1091352
+    ],
+    "probs": [
+      0.2027,
+      0.0086,
+      0.7887
+    ],
+    "gt_probs": [
+      0.1501,
+      0.2438,
+      0.6061
+    ],
+    "note": "float32 fused UNSQ-GRU; argmax+conf match PC GT"
   }
 ]

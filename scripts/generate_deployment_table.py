@@ -31,22 +31,27 @@ lstm = load_json(OUT/"group_kfold_lstm.json")
 gru = load_json(OUT/"group_kfold_gru.json")
 
 # Model sizes from earlier compare (fallback if not in paired)
-sizes = {"cnn": 77.9, "tcn": 70.1, "lstm": 130.3, "gru": 107.5}
+# LSTM/GRU sizes = fused float32 exports actually benchmarked on S3 (2026-08-25)
+sizes = {"cnn": 77.9, "tcn": 70.1, "lstm": 126.5, "gru": 103.7}
 # Measured latency on S3 (BENCHMARK_MODE, 19 windows, ref kernels) — hw_eval/captures/latency_all.json
 # CNN 3792 ms (595+3197), TCN 3611 ms (595+3016), robust 3792 ms
+# LSTM 1574 ms / GRU 1379 ms measured 2026-08-25 via fused UnidirectionalSequence float32 exports
 try:
     import json as _j, pathlib as _p
     _lat = _j.loads((_p.Path(__file__).parent.parent / "hw_eval" / "captures" / "latency_all.json").read_text())
     # _lat is list of dicts with model/per_window_avg_us
     _map = {d["model"]: d["per_window_avg_us"]/1000 for d in _lat}
-    latency = {"cnn": int(_map.get("CNN_int8", _map.get("robust_CNN_balanced", 3792))), "tcn": int(_map.get("TCN_int8", 3611)), "lstm": 5200, "gru": 4800}
-    # fallback if keys differ
-    if "cnn" not in latency or latency["cnn"]<1000:
-        latency = {"cnn": 3792, "tcn": 3611, "lstm": 5200, "gru": 4800}
+    # ESP-NN build (2026-08-25 session 2) preferred; falls back to reference-kernel runs
+    latency = {
+        "cnn": int(_map.get("CNN_int8_espnn", _map.get("CNN_int8", 500))),
+        "tcn": int(_map.get("TCN_int8_espnn", _map.get("TCN_int8", 609))),
+        "lstm": int(_map.get("LSTM_fused_espnn", _map.get("LSTM_fused_float32", 1290))),
+        "gru": int(_map.get("GRU_fused_espnn", _map.get("GRU_fused_float32", 1091))),
+    }
 except Exception:
-    latency = {"cnn": 3792, "tcn": 3611, "lstm": 5200, "gru": 4800}  # measured on S3
+    latency = {"cnn": 500, "tcn": 609, "lstm": 1290, "gru": 1091}  # ESP-NN measured on S3
 # Arena/RAM: TENSOR_ARENA_SIZE 200KB, free heap 145KB (from paper)
-arena = 200
+arena = 300  # asymmetric split: 96 KB denoiser + 204 KB classifier (ESP-NN scratch)
 heap_free = 145
 
 rows=[]
@@ -74,7 +79,7 @@ for name, data, qtype in [("cnn",cnn,"full-int8"), ("tcn",tcn,"full-int8"), ("ls
         "throughput_windows_per_s": round(1000/latency[name],2),
         "rtf": round(latency[name]/1000,2),  # real-time factor >1 means not real-time
         "arena_kb": arena,
-        "deployable": "yes" if qtype=="full-int8" and latency[name]<1000 else "no (float32 or >1s)",
+        "deployable": "yes (real-time)" if qtype=="full-int8" and latency[name]<1000 else ("no (float32)" if qtype!="full-int8" else "no (>1s)"),
         "quant_delta": delta
     })
 

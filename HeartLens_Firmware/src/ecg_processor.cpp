@@ -79,10 +79,13 @@ WindowResult EcgProcessor::runSlidingInference(int16_t* samples, int length,
 
   if (!_initialized || length < windowSize) return wr;
 
-  // Shared arena halves: first half for denoiser, second half for classifier
+  // Asymmetric arena split: denoiser needs ~96 KB, classifier gets the rest
+  // (master esp-nn im2col scratch alone requests ~106 KB for the first conv).
   uint8_t* arena1 = (uint8_t*)_arena;
-  uint8_t* arena2 = (uint8_t*)_arena + _arenaSize / 2;
-  int halfArena = _arenaSize / 2;
+  const int denArena = 96 * 1024;
+  uint8_t* arena2 = arena1 + denArena;
+  int halfArena = _arenaSize - denArena;  // classifier budget
+  int denArenaSize = denArena;
 
   tflite::AllOpsResolver resolver;
 
@@ -90,7 +93,7 @@ WindowResult EcgProcessor::runSlidingInference(int16_t* samples, int length,
   const tflite::Model* denoiserModel = tflite::GetModel(robust_denoiser_int8_tflite);
   const tflite::Model* classifierModel = tflite::GetModel(robust_classifier_int8_tflite);
 
-  tflite::MicroInterpreter denoiserInterp(denoiserModel, resolver, arena1, halfArena);
+  tflite::MicroInterpreter denoiserInterp(denoiserModel, resolver, arena1, denArenaSize);
   if (denoiserInterp.AllocateTensors() != kTfLiteOk) {
     Serial.println("[ECG] Denoiser alloc failed");
     return wr;
@@ -127,17 +130,27 @@ WindowResult EcgProcessor::runSlidingInference(int16_t* samples, int length,
     esp_task_wdt_reset();  // long (10 s) buffers: keep the WDT fed per window
     unsigned long t0 = micros();
 
-    int8_t* dIn = denoiserInput->data.int8;
+    // Dtype-agnostic window handling: int8 (CNN/TCN) and float32 (fused RNNs)
+    const bool denIsF32 = (denoiserInput->type == kTfLiteFloat32);
     int copyLen = (windowSize < denoiserInputLen) ? windowSize : denoiserInputLen;
-    for (int i = 0; i < copyLen; i++) {
-      // Normalize to [-1, 1] matching training pipeline
-      int idx = start + i;
-      float normalized = (samples[idx] - center) / maxDev;
-      normalized = (normalized < -1.0f) ? -1.0f : (normalized > 1.0f) ? 1.0f : normalized;
-      // Convert to int8 via model's quantization params
-      float iScale = denoiserInput->params.scale;
-      int iZero = denoiserInput->params.zero_point;
-      dIn[i] = (int8_t)((int)(normalized / iScale + iZero + 0.5f));
+    if (denIsF32) {
+      float* dIn = denoiserInput->data.f;
+      for (int i = 0; i < copyLen; i++) {
+        int idx = start + i;
+        float v = (samples[idx] - center) / maxDev;
+        v = (v < -1.0f) ? -1.0f : (v > 1.0f) ? 1.0f : v;
+        dIn[i] = v;
+      }
+    } else {
+      int8_t* dIn = denoiserInput->data.int8;
+      for (int i = 0; i < copyLen; i++) {
+        int idx = start + i;
+        float normalized = (samples[idx] - center) / maxDev;
+        normalized = (normalized < -1.0f) ? -1.0f : (normalized > 1.0f) ? 1.0f : normalized;
+        float iScale = denoiserInput->params.scale;
+        int iZero = denoiserInput->params.zero_point;
+        dIn[i] = (int8_t)((int)(normalized / iScale + iZero + 0.5f));
+      }
     }
 
     if (denoiserInterp.Invoke() != kTfLiteOk) {
@@ -146,28 +159,45 @@ WindowResult EcgProcessor::runSlidingInference(int16_t* samples, int length,
     }
     unsigned long tDen = micros();
 
-    // Copy denoiser output to classifier input
-    int classCopyLen = (denoiserOutput->bytes < (size_t)classInputLen)
-                         ? denoiserOutput->bytes : (size_t)classInputLen;
-    memcpy(classInput->data.int8, denoiserOutput->data.int8, classCopyLen);
+    // Copy denoiser output -> classifier input (dtype-agnostic)
+    if (classInput->type == kTfLiteFloat32 && denoiserOutput->type == kTfLiteFloat32) {
+      int n = denoiserOutput->dims->data[denoiserOutput->dims->size - 1];
+      if (n > classInputLen) n = classInputLen;
+      for (int i = 0; i < n; i++) classInput->data.f[i] = denoiserOutput->data.f[i];
+    } else if (classInput->type == kTfLiteFloat32 && denoiserOutput->type == kTfLiteInt8) {
+      float dScale = denoiserOutput->params.scale; int dZero = denoiserOutput->params.zero_point;
+      int n = denoiserOutput->dims->data[denoiserOutput->dims->size - 1];
+      if (n > classInputLen) n = classInputLen;
+      for (int i = 0; i < n; i++)
+        classInput->data.f[i] = ((float)denoiserOutput->data.int8[i] - dZero) * dScale;
+    } else {
+      int classCopyLen = (denoiserOutput->bytes < (size_t)classInputLen)
+                           ? denoiserOutput->bytes : (size_t)classInputLen;
+      memcpy(classInput->data.int8, denoiserOutput->data.int8, classCopyLen);
+    }
 
     if (classifierInterp.Invoke() != kTfLiteOk) {
       Serial.println("[ECG] Classifier invoke failed");
       continue;
     }
 
-    // Proper dequantization of int8 softmax output
-    float classScale = classOutput->params.scale;
-    int classZeroPoint = classOutput->params.zero_point;
-
-    int8_t* scores = classOutput->data.int8;
     float probs[8];
     float sumP = 0.0f;
-    for (int i = 0; i < numClasses; i++) {
-      float prob = dequantizeInt8(scores[i], classScale, classZeroPoint);
-      prob = (prob < 0.0f) ? 0.0f : prob;  // clamp negative
-      probs[i] = prob;
-      sumP += prob;
+    if (classOutput->type == kTfLiteFloat32) {
+      float* scores = classOutput->data.f;
+      for (int i = 0; i < numClasses; i++) {
+        float p = scores[i]; if (p < 0.0f) p = 0.0f;
+        probs[i] = p; sumP += p;
+      }
+    } else {
+      float classScale = classOutput->params.scale;
+      int classZeroPoint = classOutput->params.zero_point;
+      int8_t* scores = classOutput->data.int8;
+      for (int i = 0; i < numClasses; i++) {
+        float prob = dequantizeInt8(scores[i], classScale, classZeroPoint);
+        prob = (prob < 0.0f) ? 0.0f : prob;
+        probs[i] = prob; sumP += prob;
+      }
     }
     if (sumP <= 0.0f) continue;
     for (int i = 0; i < numClasses; i++) probs[i] /= sumP;

@@ -1,0 +1,9 @@
+{
+  "name": "esp_nn",
+  "version": "1.0.0",
+  "description": "Espressif optimized NN kernels (vendored subset for TFLM)",
+  "build": {
+    "flags": ["-DCONFIG_NN_OPTIMIZED", "-DARCH_ESP32_S3", "-Iinclude"],
+    "srcFilter": ["src/*/*.c", "src/*/*.S"]
+  }
+}

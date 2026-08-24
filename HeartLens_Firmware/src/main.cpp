@@ -160,7 +160,7 @@ static void benchmarkLoop() {
       static int16_t synth[SAMPLES_PER_WINDOW];
       // Synthetic "ECG": 1.2 Hz sawtooth + noise, enough to exercise
       // the full pipeline without a real signal
-      unsigned long seed = millis();
+      unsigned long seed = 12345;  // fixed: deterministic A/B kernel testing
       for (int i = 0; i < SAMPLES_PER_WINDOW; i++) {
         seed = seed * 1103515245UL + 12345UL;
         float phase = (i % 300) / 300.0f * 6.283f;
@@ -187,8 +187,9 @@ static void benchmarkLoop() {
                     g_ecg.benchWindows ? g_ecg.benchDenoiseUs / g_ecg.benchWindows : 0,
                     g_ecg.benchWindows ? g_ecg.benchClassifyUs / g_ecg.benchWindows : 0,
                     g_ecg.benchWindows ? g_ecg.benchTotalUs / g_ecg.benchWindows : 0);
-      Serial.printf("  result: class=%d conf=%.3f valid=%d windows=%d\n",
-                    best, (tot > 0.0f) ? bestS / tot : 0.0f, wr.totalWindows > 0, wr.totalWindows);
+      Serial.printf("  result: class=%d conf=%.3f valid=%d windows=%d probs=%.4f,%.4f,%.4f\n",
+                    best, (tot > 0.0f) ? bestS / tot : 0.0f, wr.totalWindows > 0, wr.totalWindows,
+                    wr.classScores[0]/tot, wr.classScores[1]/tot, wr.classScores[2]/tot);
     }
   } else if (millis() - g_lastBenchBeat >= 2000) {
     g_lastBenchBeat = millis();
@@ -361,4 +362,3 @@ void loop() {
 
   delay(10);
 }
-                            

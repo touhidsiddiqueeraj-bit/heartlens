@@ -45,7 +45,7 @@ email address or ORCID}
 \maketitle
 
 \begin{abstract}
-Low-cost wearable ECG screening aims at early detection of abnormal rhythms on sub-\$15 microcontrollers, but must balance accuracy, size and latency. We evaluate four architectures (1D-CNN, LSTM, GRU, TCN) for 3-class beat classification (Normal/APB/PVC) on MIT-BIH using \emph{identical} patient-level folds. Five experiments cover patient-independent grouped CV ($5\times2$), noise robustness (SNR 0--40\,dB, 5 artifacts $\times$ 3 front-ends), external validation on SVDB (N/V-macro), paired FP32$\rightarrow$INT8 quantization, and on-device measurement on ESP32-S3. APB remains the minority bottleneck (grouped CV APB F1 $0.14$--$0.28$, 16-way mitigation lifts CNN APB to $0.73$ on a single split). INT8 degrades macro by $0.21$--$0.24$ on paired folds with $33$--$40\%$ prediction disagreement (LSTM/GRU not quantizable). Measured per-window latency is $3.79$\,s (CNN) / $3.61$\,s (TCN) on TFL-Micro reference kernels (148.9\,KB free heap, 200\,KB arena) --- not real-time, identifying Xtensa kernels as the bounded path to real time. Butterworth front-end ($0$\,KB, $5$\,ms) dominates the learned denoiser ($19$\,KB, $595$\,ms).
+Low-cost wearable ECG screening aims at early detection of abnormal rhythms on sub-\$15 microcontrollers, but must balance accuracy, size and latency. We evaluate four architectures (1D-CNN, LSTM, GRU, TCN) for 3-class beat classification (Normal/APB/PVC) on MIT-BIH using \emph{identical} patient-level folds. Five experiments cover patient-independent grouped CV ($5\times2$), noise robustness (SNR 0--40\,dB, 5 artifacts $\times$ 3 front-ends), external validation on SVDB (N/V-macro), paired FP32$\rightarrow$INT8 quantization, and on-device measurement on ESP32-S3. APB remains the minority bottleneck (grouped CV APB F1 $0.14$--$0.28$, 16-way mitigation lifts CNN APB to $0.73$ on a single split). INT8 degrades macro by $0.21$--$0.24$ on paired folds with $33$--$40\%$ prediction disagreement (LSTM/GRU not quantizable). On ESP-NN-optimized kernels the same silicon runs CNN in $500$\,ms and TCN in $609$\,ms per window---real-time (RTF $0.50$/$0.61$)---while float32 LSTM/GRU need $1.29$/$1.09$\,s; kernel optimization, not architecture, was the deployment bottleneck. Butterworth front-end ($0$\,KB, $5$\,ms) dominates the learned denoiser ($19$\,KB, $595$\,ms).
 \end{abstract}
 
 \section{Introduction}
@@ -78,7 +78,7 @@ ESP32 ECG 2023 & --- & --- & $\checkmark$ & $\checkmark$ & $\checkmark$ & --- & 
 \bottomrule
 \end{tabular}
 }
-\caption{Prior-work gap (brutal M14): patient-independent CV, external, noise (5 artifacts $\times$ 3 front-ends), paired quant, real S3, calibration (ECE/NLL/Brier), measured latency.}
+\caption{Prior-work gap: patient-independent CV, external, noise (5 artifacts $\times$ 3 front-ends), paired quant, real S3, calibration (ECE/NLL/Brier), measured latency.}
 \label{tab:gap}
 \end{table}
 
@@ -111,9 +111,9 @@ A classifier can emit high-confidence predictions on corrupted input, so the fir
 The gate rejects a buffer when the range is below 8 ADC counts (near-flat), when more than 5\% of samples lie within one twentieth of the range of the extremes (saturation), or when the differential-to-signal energy ratio exceeds a threshold, an inexpensive proxy for high-frequency corruption such as muscle artifact or baseline wander \cite{clifford2006}.
 
 
-\subsection{Models}
+\subsection{Models}\label{sec:methods-models}
 
-Four architectures share one head (global pooling, dense 64, dropout 0.5, softmax) and one training schedule (Adam \cite{kingma2015}, 1e-3, batch 64, early stopping): CNN (three Conv1D blocks, 32/64/128 filters with batch normalization \cite{ioffe2015}, kernel 5), LSTM \cite{hochreiter1997} and GRU (one Conv1D block followed by 64 recurrent units), and TCN (a temporal convolutional network with two dilated causal blocks and residual connections \cite{bai2018}). A Conv1D autoencoder denoiser (16/8 filters, kernel 15, transposed-convolution decoder) is trained on clean-to-noisy reconstruction at seven SNR levels. The CNN and TCN export to full int8 TFLite; the Keras 3 LSTM and GRU graphs are not quantizable by the TFLite converter and are therefore reported as float32 only, itself a finding relevant to edge deployment. Temperature scaling is fit on the validation set, minimising the negative log-likelihood over a single scalar temperature, and applied at inference so that confidence thresholds are calibrated probabilities (PC-side evaluation).
+Four architectures share one head (global pooling, dense 64, dropout 0.5, softmax) and one training schedule (Adam \cite{kingma2015}, 1e-3, batch 64, early stopping): CNN (three Conv1D blocks, 32/64/128 filters with batch normalization \cite{ioffe2015}, kernel 5), LSTM \cite{hochreiter1997} and GRU (one Conv1D block followed by 64 recurrent units), and TCN (a temporal convolutional network with two dilated causal blocks and residual connections \cite{bai2018}). A Conv1D autoencoder denoiser (16/8 filters, kernel 15, transposed-convolution decoder) is trained on clean-to-noisy reconstruction at seven SNR levels. The CNN and TCN export to full int8 TFLite; the Keras 3 LSTM and GRU graphs are not quantizable by the TFLite converter and are therefore reported as float32 only, itself a finding relevant to edge deployment. For on-device timing we additionally re-exported both RNNs through fused sequence layers (UNIDIRECTIONAL\_SEQUENCE\_LSTM/GRU builtins) via a static-shape concrete-function conversion with weights transferred unchanged; these FP32 variants are what Table~\ref{tab:deploy} benchmarks. Temperature scaling is fit on the validation set, minimising the negative log-likelihood over a single scalar temperature, and applied at inference so that confidence thresholds are calibrated probabilities (PC-side evaluation).
 
 \begin{equation}
 \sigma_n = \sigma_s \cdot 10^{-\mathrm{SNR}/20}, \qquad \tilde{x} = x + n, \quad n \sim \mathcal{N}(0, \sigma_n^2)
@@ -247,7 +247,7 @@ GRU & 0.526 & --- & --- & --- & 107.5 \\
 \label{tab:compare}
 \end{table}
 
-Grouped CV (Table~\ref{tab:gcv}, $5\times2$ identical folds) shows CNN $0.619\pm0.242$ and TCN $0.615\pm0.229$ tied (CI overlapping), LSTM $0.582\pm0.096$, GRU $0.526\pm0.170$; APB support 0--502 per fold explains large SD. On the single held-out split (493/24/401) weighted/balanced lifts CNN APB $0\rightarrow0.73$ (P $0.88$ R $0.625$) / $0.68$ and TCN $0.70\rightarrow0.68$ (Table~\ref{tab:apb}, 16-way); LSTM/GRU best APB $0.26$ confirms architecture matters. SVDB has no APB, so we report N/V-macro $0.562$ (N $0.663$, PVC $0.462$, Table~\ref{tab:svdb}); 3-class $0.375$ is biased. Paired INT8 on identical folds (Table~\ref{tab:compare}) degrades macro by $0.210\pm0.164$ (CNN, 33\% disagree) and $0.238\pm0.165$ (TCN, 40\% disagree); LSTM/GRU remain float32 (TensorListStack, not quantizable). Calibration ($T=0.350$, val-only) ECE $0.389\rightarrow0.088$, NLL $0.623\rightarrow0.244$, Brier $0.323\rightarrow0.100$ (Fig.~\ref{fig:calib}).
+Grouped CV (Table~\ref{tab:gcv}, $5\times2$ identical folds) shows CNN $0.619\pm0.242$ and TCN $0.615\pm0.229$ tied (CI overlapping), LSTM $0.582\pm0.096$, GRU $0.526\pm0.170$; APB support 0--502 per fold explains large SD. On the single held-out split (493/24/401, Table~\ref{tab:apb}), CNN baseline collapses on APB (F1 $0.000$); class weighting lifts it to $0.732$ (P $0.882$, R $0.625$) and balanced sampling gives $0.684$ at the best macro ($0.876$). TCN tells the opposite story: its unmitigated baseline already scores APB $0.700$---within rounding of CNN's best mitigated $0.732$---and every mitigation trades it away slightly for macro gain. LSTM/GRU's best APB is $0.261$ even with weighting, confirming architecture matters beyond loss balancing: TCN handles APB scarcity intrinsically, whereas CNN requires explicit rebalancing. SVDB has no APB, so we report N/V-macro $0.562$ (N $0.663$, PVC $0.462$, Table~\ref{tab:svdb}); 3-class $0.375$ is biased. Paired INT8 on identical folds (Table~\ref{tab:compare}) degrades macro by $0.210\pm0.164$ (CNN, 33\% disagree) and $0.238\pm0.165$ (TCN, 40\% disagree); LSTM/GRU remain float32 (TensorListStack, not quantizable). Calibration ($T=0.350$, val-only) ECE $0.328\rightarrow0.051$, NLL $0.700\rightarrow0.407$, Brier $0.381\rightarrow0.210$ (Fig.~\ref{fig:calib}).
 
 \begin{table}[t]
 \centering
@@ -262,7 +262,7 @@ N/V-macro & 0.562 & 29{,}554 \\
 3-class (biased) & 0.375 & 29{,}554 \\
 \bottomrule
 \end{tabular}
-\caption{External validation on SVDB (29{,}554 windows, 14 recordings). APB is absent (0 windows) so 3-class macro is biased; we report N/V-macro $0.562$ as the supported-class metric (Table V fixed, brutal C3).}
+\caption{External validation on SVDB (29{,}554 windows, 14 recordings). APB is absent (0 windows) so 3-class macro is biased; we report N/V-macro $0.562$ as the supported-class metric.}
 \label{tab:svdb}
 \end{table}
 
@@ -273,24 +273,22 @@ N/V-macro & 0.562 & 29{,}554 \\
 \toprule
 Model & Macro & Size & Latency & RTF & $\Delta$INT8 \\
 \midrule
-CNN & 0.619 & 77.9 & 3792 & 3.79 & $-0.210$ \\
-TCN & 0.615 & 70.1 & 3611 & 3.61 & $-0.238$ \\
-LSTM & 0.582 & 130.3 & 5200$^\ast$ & 5.2 & --- \\
-GRU & 0.526 & 107.5 & 4800$^\ast$ & 4.8 & --- \\
+CNN & 0.619 & 77.9 & 500 & 0.50 & $-0.210$ \\
+TCN & 0.615 & 70.1 & 609 & 0.61 & $-0.238$ \\
+LSTM & 0.582 & 126.5 & 1290 & 1.29 & --- \\
+GRU & 0.526 & 103.7 & 1091 & 1.09 & --- \\
 \bottomrule
 \end{tabular}
 }
-\caption{Deployment master: grouped CV macro, INT8 size (KB), \emph{measured} per-window latency on ESP32-S3 reference kernels (ms, $n=19$ windows: denoise $595$\,ms + classify $3016$--$3197$\,ms), RTF, and paired INT8 $\Delta$. $^\ast$ LSTM/GRU latency estimated (float32, not deployed). No model meets $1$\,s (Fig.~\ref{fig:pareto}). Arena $200$\,KB, free heap $148.9$\,KB.}
+\caption{Deployment master on ESP-NN-optimized kernels: grouped CV macro, flash size (KB; LSTM/GRU are the fused float32 exports of \S\ref{sec:methods-models}), measured per-window latency (ms, $n=19$ windows each, fixed-seed input, three runs, $<0.1\%$ spread; denoise $315$\,ms + classify remainder), RTF = latency$/1000$\,ms window, and paired INT8 $\Delta$. CNN and TCN meet real-time (RTF $<1$). Arena $300$\,KB internal SRAM ($96$\,KB denoiser + $204$\,KB classifier), heap free $\approx49$\,KB.}
 \label{tab:deploy}
 \end{table}
 
 \subsection{On-Device Feasibility Verification}
 
-The quantized models occupy $81$\,KB (robust CNN) / $77.9$\,KB (CNN) / $70.1$\,KB (TCN) and $19$\,KB denoiser in flash. With the $200$\,KB shared arena the S3 reports $148.9$\,KB free heap at boot (Fig.~\ref{fig:pareto}, Table~\ref{tab:deploy}).
+The quantized CNN/TCN occupy $77.9$/$70.1$\,KB plus the $19$\,KB denoiser in flash; the float32 LSTM/GRU occupy $126.5$/$103.7$\,KB. The tensor arena is $300$\,KB internal SRAM, split $96$\,KB denoiser / $204$\,KB classifier to accommodate ESP-NN scratch; free heap is $\approx49$\,KB at boot (Table~\ref{tab:deploy}, Fig.~\ref{fig:pareto}). A synthetic signal completes $19$ sliding windows end-to-end (valid$=1$), verifying execution of every architecture.
 
-A synthetic signal completes $19$ sliding windows end-to-end (valid$=1$, bench-wait heartbeat), verifying quantized execution.
-
-Measured per-window latency (BENCHMARK\_MODE, $n=19$, $240$\,MHz, reference kernels): CNN $3.79$\,s ($0.595$\,s denoise + $3.20$\,s classify, total $72.06$\,s), TCN $3.61$\,s ($0.595$\,s + $3.02$\,s, total $68.62$\,s). RTF $3.6$--$3.8$ ($>1$, not real-time). Denoiser adds $16\%$ overhead; Butterworth ($0$\,KB, $\sim5$\,ms) dominates it (Fig.~\ref{fig:per_artifact}). Cost is toolchain-bound (Xtensa-optimized kernels not benchmarked). Systematic DAC$\rightarrow$ADC replay (hardware-domain $\Delta$F1) is not possible on S3 (no DAC, \texttt{driver/dac.h} fails; S3 \texttt{SOC\_DAC\_SUPPORTED}=0) — see Limitations.
+Measured per-window latency on \emph{ESP-NN-optimized kernels} (BENCHMARK\_MODE, $n=19$, $240$\,MHz, fixed-seed input, three runs each, variation $<0.1\%$): CNN $500$\,ms ($315$ denoise + $184$ classify), TCN $609$\,ms, LSTM $1290$\,ms, GRU $1091$\,ms. Two findings stand out. First, CNN and TCN meet real-time (RTF $0.50$/$0.61<1$) with outputs verified bit-exact against PC reference kernels---deployable as-is; TFL-Micro's portable reference kernels ran them $7.6\times$/$5.9\times$ slower ($3.79$/$3.61$\,s), inverting the ranking and missing the budget entirely. Second, kernel optimization, not architecture, was the bottleneck: ESP-NN accelerates int8 convolution ${\approx}17\times$ ($3197\rightarrow184$\,ms) while float32 sequence kernels gain only ${\sim}20\%$, restoring MAC-order ranking. Notably, esp-nn v1.0.0's S3 assembly kernels produced silently incorrect conv outputs on our shapes; our fixed-input hardware A/B harness localized the fault, and upstream master fixes resolve it. The denoiser stage drops $595\rightarrow315$\,ms; the ${\sim}5$\,ms Butterworth remains favorable. DAC$\rightarrow$ADC replay (hardware-domain $\Delta$F1) is impossible on S3 (no DAC; \texttt{SOC\_DAC\_SUPPORTED}=0) --- see Limitations.
 
 % ponytail: fig_confusion/gcv/noise/compare moved to supplementary to meet 6-page IEEE limit; pareto/calibration/per-artifact/sqi are the primary deployment figures
 % \begin{figure}[t]\centering\includegraphics[width=0.98\columnwidth]{figures/fig_confusion.png}\caption{...}\label{fig:confusion}\end{figure}
@@ -300,28 +298,28 @@ Measured per-window latency (BENCHMARK\_MODE, $n=19$, $240$\,MHz, reference kern
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.98\columnwidth]{figures/fig_calib.png}
+\includegraphics[width=0.94\columnwidth]{figures/fig_calib.png}
 \caption{Calibration reliability diagram (robust CNN, $T=0.350$, val-only). ECE $0.328\rightarrow0.051$, NLL $0.700\rightarrow0.407$, Brier $0.381\rightarrow0.210$ — 11 bins, bar opacity = count.}
 \label{fig:calib}
 \end{figure}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.98\columnwidth]{figures/fig_pareto.png}
-\caption{Pareto: grouped CV macro vs. \emph{measured} latency. TCN $3.61$\,s ($70.1$\,KB) vs. CNN $3.79$\,s ($77.9$\,KB) — TCN 5\% faster; both RTF $>3$ on ref kernels (red $1$\,s line).}
+\includegraphics[width=0.94\columnwidth]{figures/fig_pareto.png}
+\caption{Pareto: grouped CV macro vs. measured ESP-NN latency. CNN $500$\,ms ($77.9$\,KB) and TCN $609$\,ms ($70.1$\,KB) fall below the $1$\,s real-time line; float32 LSTM/GRU remain above it.}
 \label{fig:pareto}
 \end{figure}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.98\columnwidth]{figures/fig_per_artifact.png}
+\includegraphics[width=0.90\columnwidth]{figures/fig_per_artifact.png}
 \caption{Per-artifact robustness ($5$ types $\times$ $7$ SNR, single-column 3 rows: 2+2+1). Butterworth wins 3/5, raw wins motion, AE only wins PLI low-SNR — denoiser not justified.}
 \label{fig:per_artifact}
 \end{figure}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.98\columnwidth]{figures/fig_sqi.png}
+\includegraphics[width=0.94\columnwidth]{figures/fig_sqi.png}
 \caption{SQI gate: clean false-reject $62.6\%$ at $0.35$, corrupted reject $27.9\%$, downstream macro $0.727\rightarrow0.643$ — gate as tuned not deployable.}
 \label{fig:sqi}
 \end{figure}
@@ -337,21 +335,21 @@ F1_c = \frac{2\,\mathrm{TP}_c}{2\,\mathrm{TP}_c + \mathrm{FP}_c + \mathrm{FN}_c}
 
 Single-lead limits scope (no ST localization/axis). APB is beat-level, not AF (rhythm-level, scoped out). On-device we report functional smoke test ($19$ windows) and \emph{measured} latency (Table~\ref{tab:deploy}, Fig.~\ref{fig:pareto}); DAC$\rightarrow$ADC replay for hardware-domain $\Delta$F1 is not possible on S3 (no DAC, \texttt{SOC\_DAC\_SUPPORTED}=0, \texttt{driver/dac.h} fails) — use ESP32 classic or external MCP4725. S3 ADC linearity is unpublished; real AD8232 acquisition and battery life require hardware/ethics.
 
-Grouped CV ($5\times2$ identical folds, Table~\ref{tab:gcv}) ties CNN $0.619\pm0.242$ and TCN $0.615\pm0.229$ (CI overlapping), LSTM $0.582\pm0.096$, GRU $0.526\pm0.170$; PVC SD $0.37$ reflects fold composition, not penalty. Noise: Butterworth wins $3/5$ artifacts (baseline-wander, EMG, mixed), raw wins motion, AE only wins PLI low-SNR (Fig.~\ref{fig:per_artifact}); AE adds $19$\,KB + $595$\,ms for $<0.1$ gain --- remove from deployed pipeline (Table cost-benefit). SQI gate at $0.35$ rejects $62.6\%$ clean (Fig.~\ref{fig:sqi}, macro $0.727\rightarrow0.643$ on kept) and $27.9\%$ corrupted --- not deployable without retuning. Quantization (Table~\ref{tab:compare}) degrades paired macro by $0.21$ (CNN) / $0.24$ (TCN) with $33$/$40\%$ disagreement; single-split $0.588\rightarrow0.677$ (CNN) is split-specific.
+Grouped CV ($5\times2$ identical folds, Table~\ref{tab:gcv}) ties CNN $0.619\pm0.242$ and TCN $0.615\pm0.229$ (CI overlapping), LSTM $0.582\pm0.096$, GRU $0.526\pm0.170$; PVC SD $0.37$ reflects fold composition, not penalty. Noise: Butterworth wins $3/5$ artifacts (baseline-wander, EMG, mixed), raw wins motion, AE only wins PLI low-SNR (Fig.~\ref{fig:per_artifact}); AE adds $19$\,KB + $595$\,ms for $<0.1$ gain --- remove from deployed pipeline (Table cost-benefit). SQI gate at $0.35$ rejects $62.6\%$ clean (Fig.~\ref{fig:sqi}, macro $0.727\rightarrow0.643$ on kept) and $27.9\%$ corrupted --- not deployable without retuning. Quantization (Table~\ref{tab:compare}) costs $0.21$--$0.24$ macro with $33$/$40\%$ disagreement, arguing for calibrated-confidence abstention.
 
-Deployment (Table~\ref{tab:deploy}) is toolchain-bound: $3.79$\,s (CNN) / $3.61$\,s (TCN) per $1$\,s window on reference kernels; denoiser $0.59$\,s is $16\%$ of cost. Xtensa kernels or capping $19$ sliding windows are bounded paths to real time (not benchmarked). Memory is not the limiter: $81$/$70$\,KB + $19$\,KB flash, $200$\,KB arena, $148.9$\,KB heap free; PSRAM unused.
+Deployment (Table~\ref{tab:deploy}) on ESP-NN-optimized kernels: CNN and TCN run real-time ($500$/$609$\,ms per window); float32 LSTM/GRU remain above budget and unquantizable. Dropping the denoiser for the ${\sim}5$\,ms Butterworth cuts CNN latency to ${\sim}190$\,ms; memory is not the limiter (PSRAM unused). The esp-nn v1.0.0 numerical fault caught during this work (silent conv corruption on S3 shapes, fixed upstream) argues for probability-level on-device validation whenever kernel libraries are swapped.
 
 Older MIT-BIH literature reports $\ge0.90$ accuracy, but with patient overlap. Our patient-level GroupKFold ($5\times2$) keeps recordings disjoint; APB scarcity drives low macro and is the honest new-patient number ($0.59$) vs. patient-specific $\ge0.90$ \cite{kiranyaz2016,acharya2017,hannun2019}.
 
-Reproducibility: PhysioNet pull \cite{goldberger2000,mitdb,greenwaldsvdb}, frozen $5\times2$ folds, 40 per-fold ckpts, 16-way APB ablation, 40 paired quant ckpts, seeds documented; TensorFlow 2.21 / Keras 3 / scikit-learn \cite{pedregosa2011}; firmware header conversion and BENCHMARK\_MODE share the tree; all tables/figs regenerate end-to-end.
+Reproducibility: PhysioNet pull \cite{goldberger2000,mitdb,greenwaldsvdb}, frozen $5\times2$ folds, 40 per-fold ckpts, 16-way APB ablation, 40 paired quant ckpts, seeds documented; TensorFlow 2.21 / Keras 3 / scikit-learn \cite{pedregosa2011}; firmware header conversion and BENCHMARK\_MODE share the tree; all tables/figs regenerate end-to-end. On-device figures use an in-tree ESP-NN-optimized kernel build; LSTM/GRU timings use fused float32 exports with weights unchanged.
 
 \section{Conclusion}
 
-We presented a comparative evaluation of CNN, LSTM, GRU, and TCN classifiers for edge ECG screening on a single patient-level MIT-BIH pipeline, with grouped cross-validation, noise robustness, external validation on SVDB, int8 quantization impact, and measured on-device memory, latency, and functional execution. The quantized int8 pipeline executes correctly on the ESP32-S3 with a modest memory footprint; measured latency is dominated by TensorFlow Lite Micro's reference kernels, which identifies kernel optimization as the clear path to real-time operation.
+We presented a comparative evaluation of CNN, LSTM, GRU, and TCN classifiers for edge ECG screening on a single patient-level MIT-BIH pipeline, with grouped cross-validation, noise robustness, external validation on SVDB, int8 quantization impact, and measured on-device memory, latency, and functional execution. On ESP32-S3 with ESP-NN-optimized kernels, CNN and TCN execute correctly in real time ($500$/$609$\,ms per window, RTF $<1$, outputs matching PC reference), at a modest footprint ($70$--$78$\,KB int8 + $19$\,KB denoiser, $300$\,KB arena); float32 LSTM/GRU remain above budget ($1.29$/$1.09$\,s) and unquantizable, so kernel-aware architecture choice settles the accuracy--latency trade-off in favor of small conv stacks.
 
 
 
-\noindent\textbf{Use of AI.} During the preparation of this work the authors used AI-based tools for writing, code development, and figure preparation. After using these tools, the authors reviewed and edited the content and take full responsibility for the final publication.
+\noindent\textbf{Use of AI.} AI-based tools assisted with writing, code, and figures; the authors reviewed all content and take full responsibility for the publication.
 \FloatBarrier
 \bibliographystyle{IEEEtran}
 \bibliography{references}

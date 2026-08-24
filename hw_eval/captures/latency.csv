@@ -2,3 +2,10 @@ model,size_kb,total_us,windows,denoise_avg_us,classify_avg_us,per_window_avg_us,
 robust_CNN_balanced,81.0,72064238,19,595016,3197392,3792409,3792.4,0.264,3.79,"robust balanced, from earlier run"
 CNN_int8,77.9,72062497,19,595001,3197316,3792318,3792.3,0.264,3.79,compare_cnn_int8
 TCN_int8,70.1,68615709,19,595044,3015767,3610811,3610.8,0.277,3.61,compare_tcn_int8
+LSTM_fused_float32,126.5,29904385,19,595107,978808,1573915,1573.9,0.635,1.57,"fused UnidirectionalSequenceLSTM (builtin ops, weights transferred from compare_lstm.keras); measured 2026-08-25, S3 N16R8 @240MHz, TFLM ref kernels, 200KB internal-SRAM arena; replaces hardcoded estimate 5200ms"
+GRU_fused_float32,103.7,26203223,19,595110,784006,1379117,1379.1,0.725,1.38,"fused UnidirectionalSequenceGRU (builtin ops, weights from compare_gru.keras); same session/config as LSTM; replaces hardcoded estimate 4800ms"
+CNN_int8_reverify,77.9,72055809,19,595016,3197395,3792411,3792.4,0.264,3.79,post-restore sanity check of stock firmware; matches original CNN_int8 capture within 0.03%
+CNN_int8_espnn,77.9,9491241,19,315194,184340,499539,499.5,2.002,0.5,esp-nn master kernels (post ACCX/align fixes); bit-exact vs PC reference
+TCN_int8_espnn,70.1,11564958,19,315253,293428,608682,608.7,1.643,0.61,"argmax matches PC GT; prob delta from XNNPACK-on-PC saturation, device deterministic"
+LSTM_fused_espnn,126.5,24510513,19,315273,974754,1290027,1290.0,0.775,1.29,float32 fused UNSQ-LSTM; argmax+conf match PC GT
+GRU_fused_espnn,103.7,20735688,19,315293,776059,1091352,1091.4,0.916,1.09,float32 fused UNSQ-GRU; argmax+conf match PC GT
