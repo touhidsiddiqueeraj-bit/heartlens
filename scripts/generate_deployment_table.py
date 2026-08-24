@@ -136,7 +136,8 @@ if len(pareto)>1:
     px=[r["latency_ms_per_window"] + (-90 if r["model"]=="TCN" else 90 if r["model"]=="CNN" else 0) for r in pareto]
     py=[r["macro_f1"] + (0.018 if r["model"]=="TCN" else -0.012 if r["model"]=="CNN" else 0) for r in pareto]
     ax.plot(px, py, 'k--', alpha=0.5, linewidth=1.0, label='Pareto frontier', zorder=2)
-ax.axvline(1000, color='red', linestyle=':', alpha=0.7, linewidth=1.2, label='1 s budget')
+ax.axvline(1000, color='red', linestyle=':', alpha=0.7, linewidth=1.2, label='1 s window budget')
+ax.axvline(500, color='darkorange', linestyle=':', alpha=0.8, linewidth=1.2, label='0.5 s hop budget')
 ax.set_xlabel("Latency (ms) per 1-s Window", fontsize=7.5, labelpad=6)
 ax.set_ylabel("Macro F1", fontsize=7.5, labelpad=8)
 ax.set_title("Pareto Frontier", fontsize=9, pad=12)

@@ -341,7 +341,7 @@ def create():
     r.italic = True
     r.font.size = Pt(9)
     r.font.name = 'Times New Roman'
-    r = p.add_run(" Low-cost wearable ECG screening aims at early detection of abnormal rhythms on sub-$15 microcontrollers, but must balance accuracy, size and latency. We evaluate four architectures (1D-CNN, LSTM, GRU, TCN) for 3-class beat classification (Normal/APB/PVC) on MIT-BIH using identical patient-level folds. Five experiments cover patient-independent grouped CV (5×2), noise robustness (SNR 0–40 dB, 5 artifacts × 3 front-ends), external validation on SVDB (N/V-macro), paired FP32→INT8 quantization, and on-device measurement on ESP32-S3. APB remains the minority bottleneck (grouped-CV APB F1 0.14–0.28; single-split mitigation lifts CNN APB to 0.73). INT8 degrades macro by 0.21–0.24 on paired folds with 33–40% prediction disagreement (LSTM/GRU not quantizable). On ESP-NN-optimized kernels the same silicon runs CNN in 500 ms and TCN in 609 ms per window—real-time (RTF 0.50/0.61)—while float32 LSTM/GRU need 1.29/1.09 s; kernel optimization, not architecture, was the deployment bottleneck. Butterworth front-end (0 KB, ~5 ms) dominates the learned denoiser (19 KB, 315 ms on ESP-NN). All code, folds, and firmware benchmarks are released for full reproducibility.")
+    r = p.add_run(" Low-cost wearable ECG screening aims at early detection of abnormal rhythms on sub-$15 microcontrollers, but must balance accuracy, size and latency. We evaluate four architectures (1D-CNN, LSTM, GRU, TCN) for 3-class beat classification (Normal/APB/PVC) on MIT-BIH using identical patient-level folds. Five experiments cover patient-independent grouped CV (5×2), noise robustness (SNR 0–40 dB, 5 artifacts × 3 front-ends), external validation on SVDB (N/V-macro), paired FP32→INT8 quantization, and on-device measurement on ESP32-S3. APB remains the minority bottleneck (grouped-CV APB F1 0.14–0.28; single-split mitigation lifts CNN APB to 0.73). INT8 degrades macro by 0.21–0.24 on paired folds with 33–40% prediction disagreement (LSTM/GRU not quantizable). On ESP-NN-optimized kernels the same silicon classifies a 1-s window in 184 ms (CNN) / 293 ms (TCN)—inside the 500-ms hop that 50% window overlap imposes on streaming (hop-based RTF 0.38/0.60)—once the learned denoiser is replaced by a ~5 ms Butterworth; with the denoiser in-loop the pipeline sits at RTF 1.00/1.22, and float32 LSTM/GRU fail under either framing (≥1.55). Kernel optimization, not architecture, was the deployment bottleneck. Butterworth front-end (0 KB, ~5 ms) dominates the learned denoiser (19 KB, 315 ms on ESP-NN). All code, folds, and firmware benchmarks are released for full reproducibility.")
     r.font.size = Pt(8.5)
     r.font.name = 'Times New Roman'
     p.paragraph_format.first_line_indent = Inches(0)
@@ -413,7 +413,7 @@ def create():
         ("(i) ", {"bold": True}), ("architectures are rarely compared on the same pipeline; ", {}),
         ("(ii) ", {"bold": True}), ("quantization and latency are estimated rather than measured; ", {}),
         ("(iii) ", {"bold": True}), ("inference is rarely verified on-device after quantization. ", {}),
-        ("We close all three. We train four architectures—1D-CNN, LSTM, GRU, TCN—on identical patient-level splits of MIT-BIH and evaluate them in five controlled experiments: ", {}),
+        ("We close all three: four architectures (1D-CNN, LSTM, GRU, TCN) on identical patient-level MIT-BIH splits across five experiments (§III details the protocol): ", {}),
         ("E1 ", {"bold": True}), ("patient-independent grouped cross-validation, ", {}),
         ("E2 ", {"bold": True}), ("noise robustness at SNR 0–40 dB across three front-ends, ", {}),
         ("E3 ", {"bold": True}), ("external generalization to MIT-BIH SVDB, ", {}),
@@ -437,7 +437,7 @@ def create():
 
     add_mixed_para(doc, [
         ("For deployment, integer-only quantization [10,11] and TensorFlow Lite Micro [12] make INT8 microcontrollers practical; TinyML design guidance [13] targets exactly the flash/SRAM budgets we report. ", {}),
-        ("Since a downscaled classifier's output feeds thresholds, calibrated probabilities matter [14,15]; we use temperature scaling [14], a single-scalar rescaling with negligible cost. ", {}),
+        ("Calibrated probabilities matter for thresholded decisions [14,15]; we use temperature scaling [14]. ", {}),
         ("ESP32-class feasibility has been shown for a single CNN ", {"italic": True}), ("[16], but without the paired multi-architecture, artifact-stratified, and paired-quantization analysis offered here.", {}),
         (" Rhythm-level AF detection uses longer windows and dedicated databases [17] and is intentionally out of scope.", {}),
     ], first_line_indent=0.14)
@@ -534,7 +534,7 @@ def create():
     ], first_line_indent=0.14)
     add_equation_para(doc, "Sc = Σw pc^(w),   ŷ = argmaxc Sc,   conf = maxc Sc / Σc Sc", number=7)
     add_mixed_para(doc, [
-        ("Memory, functional execution, and per-stage latency are measured on silicon via BENCHMARK_MODE. ", {}),
+        ("Memory, functional execution, and per-stage latency are measured on silicon via BENCHMARK_MODE. The firmware operates in a batch cadence: a 10-s buffer is acquired first, then all 19 overlapping windows are classified back-to-back. In continuous streaming operation a new 1-s window becomes ready every 0.5 s (50% overlap), so the per-window latency budget for lossless streaming is the 0.5-s hop, not the 1-s window. ", {}),
         ("All reported latencies are wall-clock on the S3 at 240 MHz with TFL-Micro reference kernels; no cycle-count estimation is used. ", {}),
         ("Flash numbers are TFLite flatbuffer sizes; arena is the single shared tensor arena; heap free is reported by the firmware at boot before allocation.", {}),
     ])
@@ -548,7 +548,7 @@ def create():
     h1("III.", "RESULTS AND DISCUSSION")
     add_mixed_para(doc, [
         ("Roadmap. ", {"bold": True, "italic": True}),
-        ("Fig. 1 shows the firmware-fixed pipeline. E1: grouped CV (5×2 identical folds, Table II); E2: SNR 0–40 dB, 5 artifacts × 3 front-ends (Table IV, Fig. 2); E3: SVDB without retraining (Table V); E4: paired FP32→INT8 (Table VI); E5: S3 memory/latency (Table VII, Fig. 4) with calibration (Fig. 3) and SQI (Fig. 5). ", {}),
+        ("Fig. 1 shows the firmware-fixed pipeline. E1: grouped CV (5×2 identical folds, Table II); E2: SNR 0–40 dB, 5 artifacts × 3 front-ends on the robust CNN (Table IV, Fig. 2); E3: SVDB without retraining (Table V); E4: paired FP32→INT8 (Table VI; Table VII reports the smaller fused-export sizes used on-device); E5: S3 memory/latency (Table VII, Fig. 4) with calibration (Fig. 3) and SQI (Fig. 5). ", {}),
         ("E2/E4/calibration share one record-level split (918 windows: 493/24/401); ", {}),
         ("E1 is the only 5×2 repeated evaluation.", {}),
     ], space_after=3)
@@ -579,7 +579,7 @@ def create():
             ["LSTM", "baseline", "0.143", "0.042", "0.065", "0.299"],
             ["GRU", "weighted", "0.200", "0.375", "0.261", "0.642"],
         ],
-        caption="APB imbalance ablation (single record split, test 493/24/401, 16-way). CNN weighted lifts APB 0→0.732; TCN already 0.70 baseline. LSTM/GRU remain poor even with mitigation.",
+        caption="APB imbalance ablation (single record split, test 493/24/401; 16-way = 4 architectures × 4 imbalance strategies). CNN weighted lifts APB 0→0.732; TCN already 0.70 baseline. LSTM/GRU remain poor even with mitigation.",
         label="III",
         col_widths=[0.6,0.7,0.6,0.6,0.6,0.6]
     )
@@ -591,7 +591,7 @@ def create():
     ], first_line_indent=0.14)
     add_mixed_para(doc, [
         ("Discussion. ", {"bold": True, "italic": True}),
-        ("The TCN contrast is the key insight: it handles APB scarcity intrinsically (dilated causal convolutions aggregate long-range context without gating saturation), whereas CNN requires explicit rebalancing and recurrent gates cannot recover a class they never fire on. ", {}),
+        ("The TCN contrast is the key insight: it handles APB scarcity intrinsically (dilated causal convolutions aggregate long-range context without gating saturation), whereas CNN requires explicit rebalancing and recurrent gates cannot recover a class they never fire on. Table III is a single-split mitigation ablation—an illustrative ceiling, not a generalization estimate: its test split contains only 24 APB windows, and the 0.876 macro reflects one favorable fold. Table II's 5×2 cross-validated average (0.619) is the honest number. ", {}),
         ("PVC SD ≈0.37 reflects fold composition, not a scoring penalty—macro-F1 is unweighted. Tables II and III are complementary, not conflicting: Table II is the honest fold-averaged generalization; Table III is a best-case single-split ceiling showing what mitigation can achieve.", {}),
     ])
 
@@ -607,15 +607,15 @@ def create():
             ["30", "0.731", "0.761", "0.628"],
             ["40", "0.736", "0.751", "0.629"],
         ],
-        caption="Noise robustness: macro-F1 by front-end across SNR (averaged over 5 artifacts). Bandpass is strongest or tied at ≥5 dB; AE only wins at 0 dB by +0.02.",
+        caption="Noise robustness on the robust CNN: macro-F1 by front-end across SNR, averaged over the 5 artifact types. Bandpass is strongest or tied at ≥5 dB; AE only wins at 0 dB by +0.02.",
         label="IV",
         col_widths=[0.7,0.7,0.85,0.85]
     )
-    add_figure(doc, os.path.join(FIG_DIR, "fig_pareto.png"), "Pareto: grouped-CV macro vs. measured ESP-NN latency. CNN 500 ms (77.9 KB) and TCN 609 ms (70.1 KB) fall below the 1-s real-time line; float32 LSTM/GRU remain above it.", "4", width_inches=3.28)
+    add_figure(doc, os.path.join(FIG_DIR, "fig_pareto.png"), "Pareto: grouped-CV macro vs. measured ESP-NN per-window latency. Dashed budgets: 1-s window and 0.5-s overlap hop. CNN/TCN meet the hop budget only without the learned denoiser (§III-F); float32 LSTM/GRU remain above both.", "4", width_inches=3.10)
     add_mixed_para(doc, [
         ("Table IV sweeps SNR 0–40 dB; Fig. 2 stratifies by artifact (baseline wander, EMG, powerline, motion, mixed). ", {}),
-        ("Butterworth bandpass wins 3/5 artifacts, raw wins motion artifact, and the autoencoder only wins powerline interference at low SNR. ", {}),
-        ("The AE adds 19 KB + 315 ms for <0.1 macro gain—an unfavorable cost–benefit. ", {}),
+        ("Butterworth bandpass wins 3/5 artifacts, raw wins motion, the AE only low-SNR PLI. ", {}),
+        ("The AE adds 19 KB + 315 ms for <0.1 macro gain—unfavorable. ", {}),
         ("The takeaway is immediate: remove the denoiser from the deployed pipeline and keep the 0 KB, ~5 ms Butterworth.", {}),
     ], first_line_indent=0.14)
     add_mixed_para(doc, [
@@ -633,7 +633,7 @@ def create():
             ["N/V-macro", "0.562", "29,554"],
             ["3-class (biased)", "0.375", "29,554"],
         ],
-        caption="External validation on SVDB (29,554 windows, 14 recordings). APB is absent (0 windows) so 3-class macro is biased; we report N/V-macro 0.562 as the supported-class metric.",
+        caption="External validation on SVDB (29,554 windows, 14 recordings). APB is absent (0 windows); its F1 enters the 3-class macro as 0 by definition, mechanically deflating it to 0.375. We therefore report N/V-macro 0.562 as the supported-class metric.",
         label="V",
         col_widths=[0.8,0.6,0.8]
     )
@@ -652,11 +652,11 @@ def create():
             ["LSTM", "0.582", "—", "—", "—", "130.3"],
             ["GRU", "0.526", "—", "—", "—", "107.5"],
         ],
-        caption="Paired FP32→INT8 on identical folds (n=10 per model, 5×2). INT8 degrades macro by 0.21–0.24 (95% CI ≈0.10); LSTM/GRU not quantizable (TensorListStack, requires SELECT_TF_OPS). Single-split 0.588→0.677 (CNN) is split-specific, not paired. LSTM/GRU sizes are the SELECT_TF_OPS exports; Table VII benchmarks the smaller fused exports.",
+        caption="Paired FP32→INT8 on identical folds (n=10 per model, 5×2). INT8 degrades macro by 0.21–0.24 (95% CI ≈0.10); LSTM/GRU not quantizable (TensorListStack, requires SELECT_TF_OPS). Disagree = fraction of all test windows whose argmax differs between FP32 and INT8. Single-split 0.588→0.677 (CNN) is split-specific, not paired. LSTM/GRU sizes are the SELECT_TF_OPS exports; Table VII benchmarks the smaller fused exports.",
         label="VI",
         col_widths=[0.6,0.6,0.6,0.8,0.6,0.6]
     )
-    add_figure(doc, os.path.join(FIG_DIR, "fig_calib.png"), "Calibration reliability diagram (robust CNN; T=0.350 fit on validation, evaluated on held-out test, n=918). ECE 0.328→0.051, NLL 0.700→0.407, Brier 0.381→0.210—10 bins, bar opacity = count.", "3", width_inches=3.28)
+    add_figure(doc, os.path.join(FIG_DIR, "fig_calib.png"), "Calibration reliability diagram (robust CNN; T=0.350 fit on validation, evaluated on held-out test, n=918). ECE 0.328→0.051, NLL 0.700→0.407, Brier 0.381→0.210—10 bins, bar opacity = count.", "3", width_inches=3.10)
     add_mixed_para(doc, [
         ("Paired INT8 on identical folds (Table VI) degrades macro by 0.210±0.164 (CNN, 33% disagree) and 0.238±0.165 (TCN, 40% disagree); LSTM/GRU remain FP32-only. ", {}),
         ("Calibration (T=0.350 fit on validation; held-out test, n=918) improves ECE 0.328→0.051, NLL 0.700→0.407, Brier 0.381→0.210 (Fig. 3); it does not recover quantization loss but makes the confidence threshold (conf) meaningful for deployment.", {}),
@@ -668,7 +668,7 @@ def create():
     ])
 
     h2("E.", "Signal Quality Gate")
-    add_figure(doc, os.path.join(FIG_DIR, "fig_sqi.png"), "SQI gate: clean false-reject 62.6% at 0.35, corrupted reject 27.9%, downstream macro 0.727→0.643—gate as tuned is not deployable.", "5", width_inches=3.28)
+    add_figure(doc, os.path.join(FIG_DIR, "fig_sqi.png"), "SQI gate: clean false-reject 62.6% at 0.35, corrupted reject 27.9%, downstream macro 0.727→0.643—gate as tuned is not deployable.", "5", width_inches=3.10)
     add_mixed_para(doc, [
         ("Fig. 5 sweeps the SQI threshold. At 0.35 the gate rejects 62.6% of clean windows while only 27.9% of corrupted ones, and downstream macro on kept windows drops 0.727→0.643. ", {}),
         ("As tuned, the gate is not deployable; it needs retuning or removal. This finding is honest and conservative: a gate that blocks two-thirds of clean signal would be disabled in firmware. ", {}),
@@ -679,12 +679,12 @@ def create():
     add_table(doc,
         headers=["Model", "Macro", "Size", "Latency (ms)", "RTF (×)", "ΔINT8"],
         rows=[
-            ["CNN (int8)", "0.619", "77.9", "500", "0.50", "−0.210"],
-            ["TCN (int8)", "0.615", "70.1", "609", "0.61", "−0.238"],
-            ["LSTM (fp32†)", "0.582", "126.5", "1290", "1.29", "—"],
-            ["GRU (fp32†)", "0.526", "103.7", "1091", "1.09", "—"],
+            ["CNN (int8)", "0.619", "77.9", "500", "1.00", "−0.210"],
+            ["TCN (int8)", "0.615", "70.1", "609", "1.22", "−0.238"],
+            ["LSTM (fp32†)", "0.582", "126.5", "1290", "2.58", "—"],
+            ["GRU (fp32†)", "0.526", "103.7", "1091", "2.18", "—"],
         ],
-        caption="Deployment master on ESP-NN-optimized kernels: grouped-CV macro (n=10 folds; distinct from the single-split 0.588 baseline cited in Table VI), flash size (KB; † = fused float32 TFLite, §II-C), measured per-window latency (ms, n=19 windows each, fixed-seed input, 3 runs, <0.1% spread), RTF = latency ÷ 1000 ms window. CNN and TCN meet real-time (RTF < 1). Arena 300 KB internal SRAM (96 KB denoiser + 204 KB classifier), leaving ≈49 KB heap by budget.",
+        caption="Deployment master on ESP-NN-optimized kernels: grouped-CV macro (n=10 folds; distinct from the single-split 0.588 baseline cited in Table VI), flash size (KB; † = fused float32 TFLite, §II-C), measured per-window latency (ms, n=19 windows each, fixed-seed input, 3 runs, <0.1% spread), RTF = per-window latency ÷ 500 ms hop (the streaming budget set by 50% overlap; window-based values: 0.50/0.61/2.58/2.18). CNN and TCN meet the hop budget only once the learned denoiser is replaced by the ~5 ms Butterworth (§III-F). Arena 300 KB internal SRAM (96 KB denoiser + 204 KB classifier), leaving ≈49 KB heap by budget.",
         label="VII",
         col_widths=[0.75,0.55,0.55,0.72,0.55,0.55]
     )
@@ -695,18 +695,13 @@ def create():
     add_mixed_para(doc, [
         ("Measured per-window latency on ", {}),
         ("ESP-NN-optimized kernels", {"bold": True}),
-        (" (n=19 windows, fixed-seed input, three runs each, run-to-run variation <0.1%): CNN 500 ms, TCN 609 ms, LSTM 1290 ms, GRU 1091 ms. ", {}),
-        ("Two findings stand out. ", {}),
-        ("First, ", {"bold": True}),
-        ("CNN and TCN meet real-time (RTF 0.50 and 0.61 < 1) with correct outputs—verified bit-exact against PC reference kernels on a fixed input—so the accuracy leaders are deployable as-is; the earlier reference-kernel build (7.6× and 5.9× slower) had inverted this ranking and missed the real-time budget entirely. ", {}),
-        ("Second, ", {"bold": True}),
-        ("kernel optimization, not architecture, was the bottleneck: porting Espressif's ESP-NN accelerated int8 convolution ≈17× (3197→184 ms classify) while the float32 sequence kernels gained only ~20%, restoring the expected ranking for optimized int8 over float32 kernels. The denoiser stage drops 595→315 ms (encoder convs optimized; transposed-conv decoder still reference); replacing it with the ~5 ms Butterworth remains favorable. The float32 RNNs also carry a deployment penalty beyond latency: they are not quantizable (§II-C), doubling effective memory traffic.", {}),
+        (" (n=19 windows, fixed-seed input, three runs each, variation <0.1%): CNN 500 ms (315 denoise + 184 classify), TCN 609 ms, LSTM 1290 ms, GRU 1091 ms. Against the streaming budget set by the 0.5-s hop, the denoiser-in-loop pipeline is marginal: CNN sits exactly at RTF 1.00 and TCN exceeds it (1.22), and the batch firmware would occupy 95% duty cycle per 10-s buffer. Replacing the learned denoiser with the ~5 ms Butterworth—already favored on cost–benefit grounds—resolves this decisively: classify-only latency falls to 189/298 ms (hop-based RTF 0.38/0.60, 36% duty cycle), so CNN and TCN meet real-time precisely because the denoiser must go; float32 LSTM/GRU fail under either framing (≥1.55). Outputs were verified bit-exact against PC reference kernels, whereas TFL-Micro's portable reference kernels had run the conv stacks 7.6×/5.9× slower—inverting the ranking. Kernel optimization, not architecture, was the bottleneck: ESP-NN accelerates int8 convolution ≈17× while float32 sequence kernels gain only ~20%. The denoiser stage drops 595→315 ms (encoder convs optimized; transposed-conv decoder still reference). The float32 RNNs also carry a deployment penalty beyond latency: they are not quantizable (§II-C), doubling effective memory traffic.", {}),
     ], first_line_indent=0.14)
 
     # governing metrics equation
     add_mixed_para(doc, [
         ("Overall trade-off. ", {"bold": True, "italic": True}),
-        ("CNN and TCN dominate macro AND now run real-time (0.50/0.61 s/window) on ESP-NN kernels; GRU's earlier speed advantage evaporates once kernels are optimized (1.09 s, RTF > 1). Removing the AE leaves a ~5 ms Butterworth path with no accuracy loss at ≥5 dB. Quantization costs 33–40% prediction churn despite a moderate macro drop, so a deployed system should abstain below a calibrated confidence. SQI cost is unacceptable at the current threshold. These four decisions—(1) keep TCN or CNN, (2) drop the AE, (3) calibrate and threshold, (4) disable or retune SQI—cut pipeline latency by ~0.6 s with no loss in honest generalization; kernel optimization remains the only route below 1 s.", {}),
+        ("CNN and TCN dominate macro and meet the 0.5-s hop budget once the denoiser is dropped (hop-based RTF 0.38/0.60); with the denoiser in-loop they are marginal (1.00/1.22), and float32 LSTM/GRU fail regardless (≥1.55). Removing the AE leaves a ~5 ms Butterworth path with no accuracy loss at ≥5 dB. Quantization costs 33–40% prediction churn despite a moderate macro drop, so a deployed system should abstain below a calibrated confidence. SQI cost is unacceptable at the current threshold. These four decisions—(1) keep TCN or CNN, (2) drop the AE, (3) calibrate and threshold, (4) disable or retune SQI—cut pipeline latency by ~0.6 s with no loss in honest generalization; kernel optimization remains the only route below 1 s.", {}),
     ], first_line_indent=0.14)
 
     add_mixed_para(doc, [
@@ -720,7 +715,7 @@ def create():
         ("We presented a controlled, patient-independent comparison of CNN, LSTM, GRU, and TCN for edge ECG screening on one MIT-BIH pipeline, with grouped CV (5×2), noise-robustness (5×3×7), external SVDB validation, paired INT8 quantization with calibration, and measured ESP32-S3 deployment. ", {}),
         ("CNN and TCN tie for best generalization (0.619 / 0.615 macro); APB is the bottleneck and weighting lifts single-split CNN APB to 0.73, while recurrent models lag even with mitigation. ", {}),
         ("Butterworth filtering dominates the learned denoiser on cost–benefit (0 KB vs 19 KB, ~5 ms vs 315 ms); INT8 degrades paired macro by ~0.22 with 33–40% disagreement; and the SQI gate as tuned is not deployable. ", {}),
-        ("On-device with ESP-NN-optimized kernels, CNN and TCN execute correctly in real time (500/609 ms per window, RTF < 1, outputs bit-matching PC reference), at a modest footprint (70–78 KB int8 + 19 KB denoiser, 300 KB arena); float32 LSTM/GRU remain above budget (1.29/1.09 s) and unquantizable, so kernel-aware architecture choice settles the accuracy–latency trade-off in favor of small conv stacks.", {}),
+        ("On-device with ESP-NN-optimized kernels, CNN and TCN meet the streaming real-time budget (hop-based RTF 0.38/0.60 against the 0.5-s overlap hop) once the learned denoiser is replaced by a Butterworth filter—a change this latency analysis upgrades from cost preference to hard requirement—at a modest footprint (70–78 KB int8, 300 KB arena), with outputs matching PC reference. Float32 LSTM/GRU exceed budget under either framing (≥1.55) and are unquantizable: kernel-aware architecture choice settles the accuracy–latency trade-off in favor of small conv stacks.", {}),
     ], first_line_indent=0.14)
 
     add_mixed_para(doc, [
@@ -734,20 +729,22 @@ def create():
         ("S3 ADC linearity is unpublished; real AD8232 acquisition and battery life require hardware/ethics evaluation.", {}),
     ], first_line_indent=0.14)
 
-    # Use of AI
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-    p.paragraph_format.space_before = Pt(4)
-    p.paragraph_format.space_after = Pt(2)
-    r = p.add_run("Use of AI. ")
+    # LLM declaration section
+    llm_head = doc.add_paragraph(style='Heading 1')
+    llm_head.paragraph_format.space_before = Pt(6)
+    llm_head.paragraph_format.space_after = Pt(3)
+    r = llm_head.add_run("USE OF A LARGE LANGUAGE MODEL (LLM) IN THE MANUSCRIPT")
     r.bold = True
-    r.italic = True
-    r.font.size = Pt(8)
+    r.font.size = Pt(10)
+    r.font.color.rgb = RGBColor(0x0F, 0x1E, 0x3A)
     r.font.name = 'Times New Roman'
-    r = p.add_run("During preparation the authors used AI tools for writing, code, and figures; all content was reviewed and the authors take full responsibility.")
-    r.font.size = Pt(8)
-    r.font.name = 'Times New Roman'
-    r.italic = True
+    add_mixed_para(doc, [
+        ("The authors hereby declare that the use of ChatGPT or any LLM in the preparation of this research paper is either not "
+         "applicable, or if utilized, has been duly acknowledged within the paper (preferably in the 'ACKNOWLEDGEMENT' Section), where "
+         "it is explicitly stated that such models were employed solely for non-intellectual purposes. The authors confirm that the "
+         "output generated by ChatGPT or any LLM has been carefully reviewed and approved by them. The responsibility for the content "
+         "and accuracy of the information rests solely with the authors.", {}),
+    ], first_line_indent=0.14)
 
     # ---------------- V References ----------------
     h1("V.", "REFERENCES")
@@ -778,8 +775,7 @@ def create():
         ("[24]", "S. Bai et al., “An empirical evaluation of generic convolutional and recurrent networks for sequence modeling,” arXiv:1803.01271, 2018."),
         ("[25]", "A. L. Goldberger et al., “MIT-BIH Supraventricular Arrhythmia Database (SVDB),” PhysioNet, 2010. [Online]. Available: https://physionet.org/content/svdb/"),
         ("[26]", "F. Pedregosa et al., “Scikit-learn: Machine learning in Python,” J. Mach. Learn. Res., vol. 12, pp. 2825–2830, 2011."),
-        ("[27]", "A. V. Oppenheim and R. W. Schafer, Discrete-Time Signal Processing, 3rd ed. Pearson, 2009."),
-        ("[28]", "Espressif Systems, “ESP32-S3 Technical Reference Manual,” 2023. [Online]. Available: https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/"),
+        ("[27]", "Espressif Systems, ESP32-S3 Technical Reference Manual, 2023."),
     ]
     for lab, txt in refs:
         p = doc.add_paragraph()
