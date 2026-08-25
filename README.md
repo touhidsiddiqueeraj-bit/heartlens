@@ -42,10 +42,8 @@ heart-lens/
 ├── LICENSE                            # MIT License
 ├── requirements.txt                   # Python dependencies (auto-installed)
 ├── auto_train.py                      # End-to-end training pipeline (CLI + GUI)
-├── build_proposal.js                  # Node.js script to generate proposal .docx
 ├── circuit_diagram.md                 # Mermaid circuit diagram source
 ├── circuit_diagram.svg                # Rendered system block diagram
-├── todo.md                            # Full project to-do list (16 weeks)
 │
 ├── docs/
 │   └── EXPERIMENTS.md                 # Six-experiment paper protocol

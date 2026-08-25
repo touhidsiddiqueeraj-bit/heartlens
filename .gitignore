@@ -33,3 +33,6 @@ heart-lens-training/results/*.keras
 # publishables (force-included below)
 !upload/*.pdf
 !upload/*.docx
+
+# design-tool output (not research artifacts)
+opendesign/

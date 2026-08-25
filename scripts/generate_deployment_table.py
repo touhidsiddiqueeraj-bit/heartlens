@@ -100,71 +100,87 @@ with open(OUT/"deployment_master.md","w") as f:
 print(f"Saved deployment_master.json/csv/md rows={len(rows)}")
 for r in rows: print(r)
 
-# Pareto figure: single-column, legend at bottom (IEEE single-col ~3.4in wide)
+# Pareto figure — clean IEEE/Origin style: frame box, inward ticks, no grid,
+# direct labels, no in-figure title (caption carries it), minimal legend
 plt.rcParams.update({"font.family": "serif", "font.serif": ["Times New Roman", "DejaVu Serif"]})
-COLORS = {"CNN": "#2471a3", "TCN": "#d35400", "LSTM": "#1e8449", "GRU": "#922b21"}
+COLORS = {"CNN": "#1f5fa8", "TCN": "#c65911", "LSTM": "#1e7145", "GRU": "#8e3b2f"}
 MARKERS = {"CNN": "o", "TCN": "s", "LSTM": "D", "GRU": "^"}
 JITTER = {"CNN": -18, "TCN": 18, "LSTM": 0, "GRU": 0}
-fig, ax = plt.subplots(figsize=(3.40, 3.10), dpi=300)
-# sort for pareto line (use jittered positions to match scatter)
-sorted_rows = sorted(rows, key=lambda r: r["latency_ms_per_window"])
-best_f1 = -1
-pareto = []
-for r in sorted_rows:
-    if r["macro_f1"] > best_f1:
-        pareto.append(r)
-        best_f1 = r["macro_f1"]
-# draw pareto frontier first (behind points)
-if len(pareto) > 1:
-    px = [r["latency_ms_per_window"] + JITTER.get(r["model"], 0) for r in pareto]
-    py = [r["macro_f1"] for r in pareto]
-    ax.plot(px, py, color="#2c3e50", linestyle="--", alpha=0.55, linewidth=1.4, dashes=(5, 4), zorder=2, label="Pareto frontier")
-# budget lines (behind points)
-ax.axvline(500, color="#b7950b", linestyle=":", alpha=0.85, linewidth=1.5, dashes=(2, 3), zorder=1)
-ax.axvline(1000, color="#c0392b", linestyle=":", alpha=0.75, linewidth=1.5, dashes=(2, 3), zorder=1)
-# scatter with distinct colors, no annotations (legend carries labels)
-# measured classify times (ESP-NN captures): classify-only per model; recommended pipeline = classify + ~5 ms Butterworth
-CLASSIFY_MS = {"CNN": 184, "TCN": 293, "LSTM": 975, "GRU": 776}  # from hw_eval/captures/latency_all.json (espnn)
+CLASSIFY_MS = {"CNN": 184, "TCN": 293, "LSTM": 975, "GRU": 776}  # hw_eval/captures/latency_all.json (espnn)
 BUTTERWORTH_MS = 5
-for r in rows:
-    x = r["latency_ms_per_window"] + JITTER.get(r["model"], 0); y = r["macro_f1"]
-    s = max(90, r["size_kb"] * 3.6)  # slightly smaller bubbles to reduce overlap
-    col = COLORS[r["model"]]
-    mk = MARKERS[r["model"]]
-    ax.scatter(x, y, s=s, alpha=0.88, color=col, edgecolors="black", linewidth=0.9, marker=mk, zorder=4)
-# recommended (Butterworth) pipeline: hollow markers at classify+filter latency, arrow from filled to hollow
+fig, ax = plt.subplots(figsize=(3.40, 2.45), dpi=300)
+
+# budget lines (annotated directly, not in legend)
+ax.axvline(500, color="#8a7d3b", linestyle=(0, (4, 3)), linewidth=0.9, zorder=1)
+ax.axvline(1000, color="#9e3b3b", linestyle=(0, (1.5, 2.5)), linewidth=0.9, zorder=1)
+ax.text(500, 0.693, "hop 0.5 s", rotation=90, fontsize=5.6, color="#8a7d3b",
+        ha="right", va="top")
+ax.text(1000, 0.693, "window 1 s", rotation=90, fontsize=5.6, color="#9e3b3b",
+        ha="right", va="top")
+
+# pareto frontier through recommended (Butterworth) points — thin, unobtrusive
+rec_pts = sorted(rows, key=lambda r: CLASSIFY_MS[r["model"]] + BUTTERWORTH_MS)
+best = -1; front = []
+for r in rec_pts:
+    if r["macro_f1"] > best:
+        front.append(r); best = r["macro_f1"]
+if len(front) > 1:
+    ax.plot([CLASSIFY_MS[r["model"]] + BUTTERWORTH_MS for r in front],
+            [r["macro_f1"] for r in front], color="#9a9a9a", linestyle=(0, (5, 4)),
+            linewidth=0.9, zorder=2)
+
+# filled = denoiser-in-loop (rejected); hollow = Butterworth (recommended)
 for r in rows:
     m = r["model"]
     x_in = r["latency_ms_per_window"] + JITTER.get(m, 0)
     x_rec = CLASSIFY_MS[m] + BUTTERWORTH_MS + JITTER.get(m, 0)
-    y = r["macro_f1"]
-    col = COLORS[m]; mk = MARKERS[m]
-    ax.scatter(x_rec, y, s=max(90, r["size_kb"] * 3.6) * 0.55, alpha=0.95, facecolors="white",
-               edgecolors=col, linewidth=1.6, marker=mk, zorder=5)
+    y = r["macro_f1"]; col = COLORS[m]; mk = MARKERS[m]
+    # shift arrow
     ax.annotate("", xy=(x_rec, y), xytext=(x_in, y),
-                arrowprops=dict(arrowstyle="->", color=col, lw=0.9, alpha=0.65, shrinkA=6, shrinkB=6), zorder=3)
-ax.set_xlabel("Latency (ms) per 1-s window — ESP32-S3 (ESP-NN, 240 MHz)", fontsize=7.5, labelpad=5)
-ax.set_ylabel("Macro F1  (5×2 CV)", fontsize=7.5, labelpad=5)
-ax.set_title("Accuracy–Latency Pareto  (bubble = flash size)", fontsize=8.5, weight="bold", pad=7)
-ax.set_xlim(0, 1750); ax.set_ylim(0.48, 0.70)
-ax.set_xticks([0, 250, 500, 750, 1000, 1250, 1500, 1750])
-ax.set_yticks([0.50, 0.55, 0.60, 0.65, 0.70])
-ax.tick_params(labelsize=6.5, width=0.5, length=2.5, direction="out", pad=2)
-ax.grid(alpha=0.15, linewidth=0.5, linestyle="-")
-for spine in ax.spines.values():
-    spine.set_linewidth(0.6); spine.set_color("#444")
-fig.subplots_adjust(left=0.14, right=0.97, top=0.88, bottom=0.22)
-# bottom legend (single-column: no room at side)
-from matplotlib.lines import Line2D
-legend_elements = []
+                arrowprops=dict(arrowstyle="-|>", color=col, lw=0.8, alpha=0.55,
+                                shrinkA=5.5, shrinkB=5.0), zorder=3)
+    ax.scatter(x_in, y, s=52, alpha=0.9, color=col, edgecolors="black",
+               linewidth=0.6, marker=mk, zorder=4)
+    ax.scatter(x_rec, y, s=30, facecolors="white", edgecolors=col,
+               linewidth=1.1, marker=mk, zorder=5)
+
+# direct labels (Origin style) — model + recommended latency, placed to avoid collisions
+LABEL_OFF = {"CNN": (7, 5), "TCN": (7, -9), "LSTM": (8, 4), "GRU": (8, -9)}
 for r in rows:
-    legend_elements.append(plt.Line2D([0], [0], marker=MARKERS[r["model"]], color="w", markerfacecolor=COLORS[r["model"]], markeredgecolor="black", markeredgewidth=0.7, markersize=6.5, label=f"{r['model']} {r['size_kb']:.0f}KB {r['latency_ms_per_window']}ms F1 {r['macro_f1']:.3f}"))
-legend_elements.append(Line2D([0], [0], color="#2c3e50", linestyle="--", dashes=(5,4), linewidth=1.2, label="Pareto"))
-legend_elements.append(Line2D([0], [0], color="#b7950b", linestyle=":", linewidth=1.4, label="0.5s hop"))
-legend_elements.append(Line2D([0], [0], color="#c0392b", linestyle=":", linewidth=1.4, label="1s window"))
-legend_elements.append(Line2D([0], [0], marker="o", color="w", markerfacecolor="white", markeredgecolor="#555", markeredgewidth=1.2, markersize=6, label="○ Butterworth (recommended)"))
-ax.legend(handles=legend_elements, loc="upper center", bbox_to_anchor=(0.5, -0.24), frameon=True, facecolor="white", edgecolor="#bbb", framealpha=0.96, handlelength=1.4, handletextpad=0.4, borderpad=0.4, labelspacing=0.25, columnspacing=0.9, fontsize=5.8, title="Models (color = architecture)  •  budgets", title_fontsize=6.0, ncol=2)
-fig.savefig(OUT/"pareto.png", dpi=300, bbox_inches="tight", pad_inches=0.08)
+    m = r["model"]
+    x_rec = CLASSIFY_MS[m] + BUTTERWORTH_MS + JITTER.get(m, 0)
+    y = r["macro_f1"]; dx, dy = LABEL_OFF[m]
+    ax.annotate(f"{m}  {CLASSIFY_MS[m]+BUTTERWORTH_MS} ms", (x_rec, y),
+                xytext=(dx, dy), textcoords="offset points",
+                fontsize=6.0, color="#1a1a1a", zorder=6)
+
+ax.set_xlabel("Latency (ms) per 1-s window", fontsize=8, labelpad=3)
+ax.set_ylabel("Macro F1", fontsize=8, labelpad=3)
+ax.set_xlim(0, 1500); ax.set_ylim(0.49, 0.70)
+ax.set_xticks([0, 250, 500, 750, 1000, 1250, 1500])
+ax.set_yticks([0.50, 0.55, 0.60, 0.65, 0.70])
+# Origin style: full frame, inward ticks, no grid
+ax.tick_params(labelsize=7, width=0.8, length=3.2, direction="in",
+               top=True, right=True, pad=3)
+for spine in ax.spines.values():
+    spine.set_linewidth(0.8); spine.set_color("black")
+fig.subplots_adjust(left=0.135, right=0.975, top=0.97, bottom=0.155)
+
+# compact 2-entry legend (marker semantics only; models are direct-labeled)
+from matplotlib.lines import Line2D
+legend_elements = [
+    Line2D([0], [0], marker="o", color="w", markerfacecolor="#666",
+           markeredgecolor="black", markeredgewidth=0.6, markersize=5.5,
+           label="Denoiser in loop (rejected)"),
+    Line2D([0], [0], marker="o", color="w", markerfacecolor="white",
+           markeredgecolor="#666", markeredgewidth=1.1, markersize=5.5,
+           label="Butterworth (recommended)"),
+]
+ax.legend(handles=legend_elements, loc="lower left", bbox_to_anchor=(0.015, 0.02), frameon=True,
+          facecolor="white", edgecolor="#999", framealpha=1.0,
+          handlelength=1.2, handletextpad=0.4, borderpad=0.35,
+          labelspacing=0.25, fontsize=5.8)
+fig.savefig(OUT/"pareto.png", dpi=300, bbox_inches="tight", pad_inches=0.04)
 plt.close()
 print(f"saved {OUT/'pareto.png'} {OUT.joinpath('pareto.png').stat().st_size/1024:.0f}KB")
 
