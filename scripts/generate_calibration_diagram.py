@@ -84,12 +84,14 @@ print(json.dumps({k: (round(v, 4) if isinstance(v, float) else v) for k, v in me
 
 (OUT / "calibration_extended.json").write_text(json.dumps(metrics, indent=2))
 
-# ---- reliability diagram ----
-fig, axes = plt.subplots(1, 2, figsize=(7.0, 2.9))
-for ax, probs, ttl in [
-    (axes[0], probs_raw, f"Before\nECE={metrics['ece_raw']:.3f}"),
-    (axes[1], probs_cal, f"After T={T:.2f}\nECE={metrics['ece_cal']:.3f}"),
+# ---- reliability diagrams: two single-column panels (a) Before and (b) After, stacked vertically in paper ----
+# Single-column width = 3.4in, each panel ~2.2in tall, readable at 100% zoom
+plt.rcParams.update({"font.family": "serif", "font.serif": ["Times New Roman", "DejaVu Serif"]})
+for suffix, probs, ttl, col in [
+    ("a_before", probs_raw, f"(a) Before — ECE {metrics['ece_raw']:.3f}", "#c0392b"),
+    ("b_after", probs_cal, f"(b) After T={T:.2f} — ECE {metrics['ece_cal']:.3f}", "#2471a3"),
 ]:
+    fig, ax = plt.subplots(figsize=(3.40, 2.35))
     conf = probs.max(axis=1)
     pred = probs.argmax(axis=1)
     correct = (pred == y_te).astype(float)
@@ -100,17 +102,28 @@ for ax, probs, ttl in [
         if m.sum() == 0:
             continue
         xs.append(conf[m].mean()); accs.append(correct[m].mean()); fracs.append(m.mean())
-    ax.bar(xs, accs, width=0.09, alpha=0.35, color="#1f77b4", edgecolor="none")
-    ax.plot([0, 1], [0, 1], "--", color="#888", lw=1, label="Perfect")
-    ax.plot(xs, accs, "o-", color="#1f77b4", ms=3.5, lw=1.2, label="Reliability")
-    ax.set_title(ttl, fontsize=8.5)
+    alphas = [0.28 + 0.62 * (f / max(fracs)) for f in fracs]
+    for x, a, al in zip(xs, accs, alphas):
+        ax.bar(x, a, width=0.085, alpha=al, color=col, edgecolor="white", linewidth=0.6, zorder=2)
+    ax.plot([0, 1], [0, 1], "--", color="#555", lw=1.2, dashes=(4, 3), label="Perfect")
+    ax.plot(xs, accs, "o-", color=col, ms=4.5, lw=1.6, markeredgecolor="white", markeredgewidth=0.8, label="Reliability", zorder=3)
+    ax.set_title(ttl, fontsize=8.0, pad=7, weight="bold", color="#1a1a1a")
     ax.set_xlabel("Confidence", fontsize=7.5)
+    ax.set_ylabel("Accuracy", fontsize=7.5)
     ax.set_xlim(0, 1); ax.set_ylim(0, 1.02)
-    ax.tick_params(labelsize=7)
-axes[0].set_ylabel("Accuracy", fontsize=7.5)
-axes[0].legend(fontsize=6.5, loc="upper left")
-fig.suptitle(f"Reliability Diagram  (test n={n}, T={T:.2f})", fontsize=9, weight="bold", y=0.99)
-fig.tight_layout(rect=[0, 0, 1, 0.94])
+    ax.set_xticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ax.tick_params(labelsize=7, width=0.6, length=3, direction="out", pad=2.2)
+    ax.grid(alpha=0.15, linewidth=0.5, linestyle="-")
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.6); spine.set_color("#444")
+    ax.legend(fontsize=6.2, loc="upper left", frameon=True, facecolor="white", edgecolor="#bbb", framealpha=0.95, handlelength=1.2, borderpad=0.28, labelspacing=0.22)
+    fig.tight_layout()
+    fig.subplots_adjust(top=0.87, bottom=0.15, left=0.13, right=0.97)
+    out_png = OUT / f"calibration_{suffix}.png"
+    fig.savefig(out_png, dpi=300)
+    plt.close(fig)
+    print(f"saved {out_png}  {out_png.stat().st_size/1024:.0f}KB")
+# keep combined for backward compat (not used in paper)
 out_png = OUT / "calibration_fig.png"
-fig.savefig(out_png, dpi=300)
-print(f"saved {out_png}")
+print(f"combined legacy {out_png} kept for compat")

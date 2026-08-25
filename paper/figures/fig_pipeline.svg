@@ -5,32 +5,38 @@
     </marker>
   </defs>
 
-  <text x="390" y="42" text-anchor="middle" font-size="34" fill="#111">ESP32-S3 inference pipeline</text>
+  <text x="390" y="42" text-anchor="middle" font-size="32" fill="#111">Recommended deployment pipeline</text>
 
   <g stroke="#2c3e50" stroke-width="2.5" fill="#eef3f8">
     <rect x="40"  y="90"  width="200" height="130" rx="14"/>
     <rect x="290" y="90"  width="200" height="130" rx="14"/>
-    <rect x="540" y="90"  width="200" height="130" rx="14"/>
+    <rect x="540" y="90"  width="200" height="130" rx="14" stroke-dasharray="8 6" opacity="0.55"/>
     <rect x="40"  y="320" width="200" height="130" rx="14"/>
     <rect x="290" y="320" width="200" height="130" rx="14"/>
     <rect x="540" y="320" width="200" height="130" rx="14"/>
   </g>
 
   <!-- row 1 labels -->
-  <text x="140" y="150" text-anchor="middle"><tspan x="140" dy="14">ADC</tspan><tspan x="140" dy="36">360 Hz</tspan></text>
-  <text x="390" y="150" text-anchor="middle"><tspan x="390" dy="14">Quality</tspan><tspan x="390" dy="36">gate</tspan></text>
-  <text x="640" y="150" text-anchor="middle"><tspan x="640" dy="14">Denoiser</tspan><tspan x="640" dy="36">int8</tspan></text>
+  <text x="140" y="138" text-anchor="middle"><tspan x="140" dy="14">ADC</tspan><tspan x="140" dy="36">360 Hz</tspan></text>
+  <text x="390" y="132" text-anchor="middle" font-size="26"><tspan x="390" dy="14">Butterworth</tspan><tspan x="390" dy="28">~5 ms, 0 KB</tspan><tspan x="390" dy="22" font-size="18" fill="#666">recommended</tspan></text>
+  <text x="640" y="132" text-anchor="middle" font-size="22" opacity="0.6"><tspan x="640" dy="12">Denoiser int8</tspan><tspan x="640" dy="24">19 KB, 315 ms</tspan><tspan x="640" dy="20" font-size="16" fill="#a00">rejected</tspan></text>
   <!-- row 2 labels -->
-  <text x="140" y="380" text-anchor="middle"><tspan x="140" dy="14">Sliding CNN</tspan><tspan x="140" dy="36">classifier int8</tspan></text>
-  <text x="390" y="380" text-anchor="middle"><tspan x="390" dy="14">Weighted</tspan><tspan x="390" dy="36">vote</tspan></text>
-  <text x="640" y="380" text-anchor="middle"><tspan x="640" dy="14">Class +</tspan><tspan x="640" dy="36">confidence</tspan></text>
+  <text x="140" y="370" text-anchor="middle" font-size="26"><tspan x="140" dy="14">Sliding CNN/TCN</tspan><tspan x="140" dy="30">int8 / float32</tspan></text>
+  <text x="390" y="378" text-anchor="middle"><tspan x="390" dy="14">Weighted</tspan><tspan x="390" dy="36">vote</tspan></text>
+  <text x="640" y="378" text-anchor="middle"><tspan x="640" dy="14">Class +</tspan><tspan x="640" dy="36">confidence</tspan></text>
 
-  <!-- row 1 arrows -->
+  <!-- row 1 arrows: ADC -> Butterworth (solid), Butterworth -> classifier via snake (solid) -->
   <line x1="242" y1="155" x2="286" y2="155" stroke="#2c3e50" stroke-width="3" marker-end="url(#arr)"/>
-  <line x1="492" y1="155" x2="536" y2="155" stroke="#2c3e50" stroke-width="3" marker-end="url(#arr)"/>
+  <!-- snake: Butterworth (row1 middle) down to row2 classifier -->
+  <path d="M 390 222 L 390 272 L 140 272 L 140 316" fill="none" stroke="#2c3e50" stroke-width="3" marker-end="url(#arr)"/>
+  <!-- faint alternative: denoiser branch (dashed) -->
+  <line x1="492" y1="155" x2="536" y2="155" stroke="#999" stroke-width="2.2" stroke-dasharray="6 5" marker-end="url(#arr)" opacity="0.6"/>
+  <path d="M 640 222 L 640 255 L 410 255" fill="none" stroke="#999" stroke-width="2.2" stroke-dasharray="6 5" opacity="0.45"/>
+
   <!-- row 2 arrows -->
   <line x1="242" y1="385" x2="286" y2="385" stroke="#2c3e50" stroke-width="3" marker-end="url(#arr)"/>
   <line x1="492" y1="385" x2="536" y2="385" stroke="#2c3e50" stroke-width="3" marker-end="url(#arr)"/>
-  <!-- snake: denoiser (row1 right) down then left to row2 classifier -->
-  <path d="M 640 222 L 640 272 L 140 272 L 140 316" fill="none" stroke="#2c3e50" stroke-width="3" marker-end="url(#arr)"/>
+
+  <!-- SQI annotation (experimental, disabled) -->
+  <text x="390" y="485" text-anchor="middle" font-size="14" fill="#888">SQI gate: experimental, disabled (62.6% clean false-reject)</text>
 </svg>
