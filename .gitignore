@@ -36,3 +36,4 @@ heart-lens-training/results/*.keras
 
 # design-tool output (not research artifacts)
 opendesign/
+backups/

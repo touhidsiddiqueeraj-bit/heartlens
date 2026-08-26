@@ -45,15 +45,17 @@ def load_arrays(data_dir, max_per_class):
     X = np.array(X_all).reshape(-1, WINDOW_SAMPLES, 1).astype(np.float32)
     return X, np.array(y_all), np.array(g_all)
 
-def run_fold(X, y, train_idx, test_idx, mtype, epochs):
+def run_fold(X, y, train_idx, test_idx, mtype, epochs, use_weights=True):
     # weighted for APB/PVC vs Normal — consistent across folds (ponytail: simple class_weight)
-    from sklearn.utils.class_weight import compute_class_weight
-    classes = np.unique(y[train_idx])
-    try:
-        w = compute_class_weight("balanced", classes=classes, y=y[train_idx])
-        cw = dict(zip(classes, w))
-    except Exception:
-        cw = None
+    cw = None
+    if use_weights:
+        from sklearn.utils.class_weight import compute_class_weight
+        classes = np.unique(y[train_idx])
+        try:
+            w = compute_class_weight("balanced", classes=classes, y=y[train_idx])
+            cw = dict(zip(classes, w))
+        except Exception:
+            cw = None
     model = build_classifier(model_type=mtype)
     callbacks = [
         tf.keras.callbacks.EarlyStopping(patience=8, restore_best_weights=True, verbose=1),
@@ -114,7 +116,17 @@ def main():
                     help="comma-separated cnn,lstm,gru,tcn (ponytail: default cnn,tcn for 12h)")
     ap.add_argument("--folds-file", type=str, default="results/folds_5x2.json")
     ap.add_argument("--balanced", action="store_true", help="force balanced class_weight even if not needed")
+    ap.add_argument("--class-weights", choices=["balanced", "none"], default="balanced",
+                    help="balanced (default, matches paper Table II) or none (unweighted baseline arm)")
+    ap.add_argument("--tag", type=str, default="",
+                    help="suffix for ckpt dir + output files, e.g. --tag _baseline -> group_kfold_ckpt_baseline/, group_kfold_cnn_baseline.json")
     args = ap.parse_args()
+
+    global CKPT_DIR
+    if args.tag:
+        CKPT_DIR = OUT_DIR / f"group_kfold_ckpt{args.tag}"
+        CKPT_DIR.mkdir(parents=True, exist_ok=True)
+    use_weights = (args.class_weights == "balanced") or args.balanced
 
     types = [t.strip() for t in args.types.split(",") if t.strip()]
     seeds = [int(s) for s in args.seeds.split(",") if s.strip()]
@@ -165,7 +177,7 @@ def main():
             write_progress(cur_done, total, mtype, seed, fold, "training")
             print(f"\n==== {mtype.upper()} s{seed} fold{fold}  train={len(tr)} test={len(te)} test_counts={np.bincount(y[te], minlength=3).tolist()}  {pct_str(cur_done, total)} overall ====", flush=True)
             try:
-                res, pred = run_fold(X, y, tr, te, mtype, args.epochs)
+                res, pred = run_fold(X, y, tr, te, mtype, args.epochs, use_weights=use_weights)
             except Exception as e:
                 print(f"!! fail {mtype} s{seed}f{fold}: {e}", flush=True)
                 import traceback; traceback.print_exc()
@@ -206,13 +218,15 @@ def main():
                    "macro_mean": macro_mean, "macro_std": macro_std, "macro_ci95": macro_ci,
                    "per_fold": rows}
         # per-model file
-        atomic_write_json(OUT_DIR / f"group_kfold_{mtype}.json", summary)
+        atomic_write_json(OUT_DIR / f"group_kfold_{mtype}{args.tag}.json", summary)
         print(f"\n[{mtype}] n={n}  Normal {mean[0]:.4f}±{std[0]:.4f}  APB {mean[1]:.4f}±{std[1]:.4f}  PVC {mean[2]:.4f}±{std[2]:.4f}  Macro {macro_mean:.4f}±{macro_std:.4f} ci95={macro_ci:.4f}", flush=True)
 
     # combined file for paper
-    atomic_write_json(OUT_DIR / "group_kfold_all.json", {k: {"mean": np.array([r["f1"] for r in v]).mean(axis=0).tolist() if v else [],
+    atomic_write_json(OUT_DIR / f"group_kfold_all{args.tag}.json", {k: {"mean": np.array([r["f1"] for r in v]).mean(axis=0).tolist() if v else [],
                                                            "rows": v} for k,v in merged.items()})
-    print(f"\nSaved {OUT_DIR/'group_kfold_all.json'} and per-model group_kfold_{{model}}.json", flush=True)
+    print(f"\nSaved {OUT_DIR/f'group_kfold_all{args.tag}.json'} and per-model group_kfold_{{model}}{args.tag}.json", flush=True)
+    if args.tag:
+        return  # tagged arms never touch the paper's canonical legacy files
     # also write legacy compat file for old paper table: use best deployable (tcn if present else cnn)
     best = "tcn" if "tcn" in merged and merged["tcn"] else ("cnn" if "cnn" in merged else types[0])
     if merged.get(best):
